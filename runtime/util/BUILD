@@ -173,6 +173,20 @@ cc_library(
     name = "logging_tensor_buffer",
     srcs = ["logging_tensor_buffer.cc"],
     hdrs = ["logging_tensor_buffer.h"],
+    copts = select({
+        "//third_party/tensorflow:macos": [
+            "-x objective-c++",
+            "-fobjc-arc",  # enable reference-counting
+        ],
+        "//third_party/tensorflow:ios": [
+            "-x objective-c++",
+            "-fobjc-arc",  # enable reference-counting
+        ],
+        "//conditions:default": [],
+    linkopts = select({
+        "//third_party/tensorflow:macos": ["-framework Metal"],
+        "//third_party/tensorflow:ios": ["-framework Metal"],
+        "//conditions:default": [],
     deps = [
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/strings",
