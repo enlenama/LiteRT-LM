@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@litert//litert/build_common:litert_build_defs.bzl", "export_lrt_runtime_only_linkopt", "export_lrt_runtime_only_script")
+load("@litert//litert/build_common:special_rule.bzl", "litert_metal_linkopts", "litert_metal_opts")
 
 package(
     default_hdrs_check = "strict",
@@ -111,6 +112,8 @@ cc_library(
 cc_test(
     name = "tokenizer_test",
     srcs = ["tokenizer_test.cc"],
+    copts = litert_metal_opts(),
+    linkopts = litert_metal_linkopts(),
     deps = [
         ":tokenizer",
         "@com_google_googletest//:gtest_main",
@@ -189,7 +192,9 @@ cc_library(
 cc_test(
     name = "sentencepiece_tokenizer_test",
     srcs = ["sentencepiece_tokenizer_test.cc"],
+    copts = litert_metal_opts(),
     data = ["//runtime/components/testdata"],
+    linkopts = litert_metal_linkopts(),
     deps = [
         ":sentencepiece_tokenizer",
         "@com_google_googletest//:gtest_main",
@@ -221,7 +226,9 @@ cc_library(
 cc_test(
     name = "huggingface_tokenizer_test",
     srcs = ["huggingface_tokenizer_test.cc"],
+    copts = litert_metal_opts(),
     data = ["//runtime/components/testdata"],
+    linkopts = litert_metal_linkopts(),
     deps = [
         ":huggingface_tokenizer",
         "@com_google_googletest//:gtest_main",
@@ -310,6 +317,8 @@ cc_library(
 cc_test(
     name = "top_p_cpu_sampler_test",
     srcs = ["top_p_cpu_sampler_test.cc"],
+    copts = litert_metal_opts(),
+    linkopts = litert_metal_linkopts(),
     deps = [
         ":top_p_cpu_sampler",
         "@com_google_googletest//:gtest_main",
@@ -405,6 +414,8 @@ cc_test(
 cc_test(
     name = "sampler_factory_failed_dlopen_test",
     srcs = ["sampler_factory_failed_dlopen_test.cc"],
+    copts = litert_metal_opts(),
+    linkopts = litert_metal_linkopts(),
     deps = [
         ":sampler_factory",
         ":top_p_cpu_sampler",
@@ -479,6 +490,8 @@ cc_library(
 cc_library(
     name = "model_resources",
     hdrs = ["model_resources.h"],
+    copts = litert_metal_opts(),
+    linkopts = litert_metal_linkopts(),
     deps = [
         ":tokenizer",
         "@com_google_absl//absl/status",
