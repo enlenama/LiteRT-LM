@@ -3,6 +3,7 @@
 workspace(name = "litert_lm")
 
 # UPDATED = 2025-07-15
+# TODO(mattalexander): Update to new ref and sha256 once diffbase is submitted.
 LITERT_REF = "7871ba9f34685cfbc5af4896effe1595a1277cff"
 
 LITERT_SHA256 = "b80b3bcc3416efbcaf1035dcfe016c1b72b59fc2a38242749fd0f48e626c497d"
