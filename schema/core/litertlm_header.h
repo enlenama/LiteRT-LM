@@ -37,42 +37,82 @@ struct ValueTypeTraits {
 template <>
 struct ValueTypeTraits<uint8_t> {
   using SchemaType = UInt8;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, uint8_t value) {
+    return CreateUInt8(builder, value).Union();
+  }
 };
 template <>
 struct ValueTypeTraits<int8_t> {
   using SchemaType = Int8;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, int8_t value) {
+    return CreateInt8(builder, value).Union();
+  }
 };
 template <>
 struct ValueTypeTraits<uint16_t> {
   using SchemaType = UInt16;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, uint16_t value) {
+    return CreateUInt16(builder, value).Union();
+  }
 };
 template <>
 struct ValueTypeTraits<int16_t> {
   using SchemaType = Int16;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, int16_t value) {
+    return CreateInt16(builder, value).Union();
+  }
 };
 template <>
 struct ValueTypeTraits<uint32_t> {
   using SchemaType = UInt32;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, uint32_t value) {
+    return CreateUInt32(builder, value).Union();
+  }
 };
 template <>
 struct ValueTypeTraits<int32_t> {
   using SchemaType = Int32;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, int32_t value) {
+    return CreateInt32(builder, value).Union();
+  }
 };
 template <>
 struct ValueTypeTraits<float> {
   using SchemaType = Float32;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, float value) {
+    return CreateFloat32(builder, value).Union();
+  }
 };
 template <>
 struct ValueTypeTraits<bool> {
   using SchemaType = Bool;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, bool value) {
+    return CreateBool(builder, value).Union();
+  }
 };
 template <>
 struct ValueTypeTraits<uint64_t> {
   using SchemaType = UInt64;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, uint64_t value) {
+    return CreateUInt64(builder, value).Union();
+  }
 };
 template <>
 struct ValueTypeTraits<int64_t> {
   using SchemaType = Int64;
+  static flatbuffers::Offset<void> create(
+      flatbuffers::FlatBufferBuilder& builder, int64_t value) {
+    return CreateInt64(builder, value).Union();
+  }
 };
 
 template <typename T>
@@ -81,46 +121,16 @@ KVPair CreateKeyValuePair(flatbuffers::FlatBufferBuilder& builder,
   auto key_offset = builder.CreateString(key);
 
   flatbuffers::Offset<void> value_offset;
-  VData value_type;
-
-  if constexpr (std::is_same_v<T, uint8_t>) {
-    value_offset = CreateUInt8(builder, value).Union();
-    value_type = VData::VData_UInt8;
-  } else if constexpr (std::is_same_v<T, int8_t>) {
-    value_offset = CreateInt8(builder, value).Union();
-    value_type = VData::VData_Int8;
-  } else if constexpr (std::is_same_v<T, uint16_t>) {
-    value_offset = CreateUInt16(builder, value).Union();
-    value_type = VData::VData_UInt16;
-  } else if constexpr (std::is_same_v<T, int16_t>) {
-    value_offset = CreateInt16(builder, value).Union();
-    value_type = VData::VData_Int16;
-  } else if constexpr (std::is_same_v<T, uint32_t>) {
-    value_offset = CreateUInt32(builder, value).Union();
-    value_type = VData::VData_UInt32;
-  } else if constexpr (std::is_same_v<T, int32_t>) {
-    value_offset = CreateInt32(builder, value).Union();
-    value_type = VData::VData_Int32;
-  } else if constexpr (std::is_same_v<T, float>) {
-    value_offset = CreateFloat32(builder, value).Union();
-    value_type = VData::VData_Float32;
-  } else if constexpr (std::is_same_v<T, bool>) {
-    value_offset = CreateBool(builder, value).Union();
-    value_type = VData::VData_Bool;
-  } else if constexpr (std::is_same_v<T, uint64_t>) {
-    value_offset = CreateUInt64(builder, value).Union();
-    value_type = VData::VData_UInt64;
-  } else if constexpr (std::is_same_v<T, int64_t>) {
-    value_offset = CreateInt64(builder, value).Union();
-    value_type = VData::VData_Int64;
-  }
-
+  using VData_SchemaType = ValueTypeTraits<T>::SchemaType;
+  VData value_type = VDataTraits<VData_SchemaType>::enum_value;
+  value_offset = ValueTypeTraits<T>::create(builder, value);
   KeyValuePairBuilder kvp_builder(builder);
   kvp_builder.add_key(key_offset);
   kvp_builder.add_value(value_offset);
   kvp_builder.add_value_type(value_type);
   return kvp_builder.Finish();
 }
+
 
 template <>
 inline KVPair CreateKeyValuePair(flatbuffers::FlatBufferBuilder& builder,
