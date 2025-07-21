@@ -49,6 +49,26 @@ absl::StatusOr<EngineSettings> EngineSettings::CreateDefault(
   return EngineSettings(std::move(executor_settings), std::nullopt);
 }
 
+absl::Status EngineSettings::setBufferandModelStepSettings(
+    bool ring_buffer_enabled, int max_model_steps, int context_size) {
+  if (ring_buffer_enabled) {
+    if (main_executor_settings_.GetBackend() != Backend::CPU) {
+      return absl::InvalidArgumentError(
+          "Ring buffer is only supported on CPU.");
+    }
+  } else if (max_model_steps == 0 || max_model_steps > context_size) {
+    ABSL_LOG(WARNING) << "Max model steps are being set to context size.";
+    max_model_steps = context_size;
+  }
+  if (context_size >= max_model_steps) {
+    ABSL_LOG(WARNING) << "Max model steps are smaller than model context.";
+  }
+  main_executor_settings_.SetRingBufferEnabled(ring_buffer_enabled);
+  main_executor_settings_.SetMaxNumTokens(max_model_steps);
+  main_executor_settings_.SetContextSize(context_size);
+  return absl::OkStatus();
+}
+
 absl::Status EngineSettings::MaybeUpdateAndValidate(
     Tokenizer& tokenizer, const proto::LlmMetadata* metadata_from_file) {
   proto::LlmMetadata& metadata = GetMutableLlmMetadata();

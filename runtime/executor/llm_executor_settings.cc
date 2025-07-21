@@ -73,7 +73,7 @@ std::ostream& operator<<(std::ostream& os, const LlmExecutorSettings& config) {
 
 // static
 absl::StatusOr<LlmExecutorSettings> LlmExecutorSettings::CreateDefault(
-    ModelAssets model_assets, Backend backend) {
+    ModelAssets model_assets, Backend backend, int max_model_steps) {
   LlmExecutorSettings settings(std::move(model_assets));
   if (backend == Backend::CPU) {
     CpuConfig config;
@@ -92,11 +92,11 @@ absl::StatusOr<LlmExecutorSettings> LlmExecutorSettings::CreateDefault(
         absl::StrCat("Unsupported backend: ", backend));
   }
   settings.SetBackend(backend);
-  // Explicitly set the field value to avoid undefined behavior. Setting to 0
-  // means that the maximum number of tokens is not set can could be inferred
-  // from the model assets (but note that for the model or backend which does
-  // not support this, an error will be thrown during initialization).
-  settings.SetMaxNumTokens(0);
+  // Explicitly set the field value to avoid undefined behavior.
+  // Setting to max_model_steps allows the system to run the model for beyond
+  // the context size defined by the model. But this should only be supported
+  // if ring buffer is enabled.
+  settings.SetMaxNumTokens(max_model_steps);
   // Disable image input by default.
   settings.SetMaxNumImages(0);
   return settings;

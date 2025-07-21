@@ -846,7 +846,8 @@ LlmLiteRtCompiledModelExecutor::Create(LlmExecutorSettings executor_settings,
     ASSIGN_OR_RETURN(per_layer_embedding_lookup,  // NOLINT
                      EmbeddingLookupText::Create(*per_layer_embedder_model));
   }
-
+  int context_size = executor_settings.GetContextSize();
+  bool ring_buffer_enabled = executor_settings.GetRingBufferEnabled();
   return absl::WrapUnique(new LlmLiteRtCompiledModelExecutor(
       std::move(executor_settings), std::move(*lrt_env), litert_model,
       std::move(*compiled_model), std::move(prefill_input_buffers),
@@ -854,7 +855,8 @@ LlmLiteRtCompiledModelExecutor::Create(LlmExecutorSettings executor_settings,
       std::move(decode_output_buffers), std::move(input_kv_cache_buffers),
       std::move(output_kv_cache_buffers), std::move(prefill_runner_set),
       signatures, batch_size, weight_cache_path, std::move(embedding_lookup),
-      std::move(per_layer_embedding_lookup), activation_data_type));
+      std::move(per_layer_embedding_lookup), activation_data_type, context_size,
+      ring_buffer_enabled));
 }
 
 }  // namespace litert::lm

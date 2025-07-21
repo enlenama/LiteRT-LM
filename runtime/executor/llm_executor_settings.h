@@ -97,11 +97,14 @@ class LlmExecutorSettings : public ExecutorSettingsBase {
   // Creates a LlmExecutorSettings with default values using the provided
   // ModelAssets.
   static absl::StatusOr<LlmExecutorSettings> CreateDefault(
-      ModelAssets model_assets, Backend backend = Backend::CPU);
+      ModelAssets model_assets, Backend backend = Backend::CPU,
+      int max_model_steps = 0);
 
   // Getter APIs.
   uint32_t GetMaxNumTokens() const { return max_num_tokens_; }
   uint32_t GetMaxNumImages() const { return max_num_images_; }
+  uint32_t GetContextSize() const { return context_size_; }
+  bool GetRingBufferEnabled() const { return ring_buffer_enabled_; }
 
   template <typename T>
   absl::StatusOr<const T> GetBackendConfig() const {
@@ -127,6 +130,11 @@ class LlmExecutorSettings : public ExecutorSettingsBase {
   void SetMaxNumImages(uint32_t max_num_images) {
     max_num_images_ = max_num_images;
   }
+  void SetRingBufferEnabled(bool ring_buffer_enabled) {
+    ring_buffer_enabled_ = ring_buffer_enabled;
+  }
+  // TODO: b/433265135 Remove this once we can fetch it from the model.
+  void SetContextSize(uint32_t context_size) { context_size_ = context_size; }
 
   void SetBackendConfig(const std::variant<GpuArtisanConfig, GpuConfig,
                                            CpuConfig>& backend_config) {
@@ -143,6 +151,13 @@ class LlmExecutorSettings : public ExecutorSettingsBase {
 
   // Maximum number of images the model can handle.
   uint32_t max_num_images_;
+
+  // Whether ring buffering is enabled for the model.
+  bool ring_buffer_enabled_;
+
+  // TODO: b/433265135 Remove this field once we can fetch it from the model.
+  // Models context size, which is the size of the kv-cache.
+  uint32_t context_size_;
 
   // Backend specific config.
   std::variant<GpuArtisanConfig, GpuConfig, CpuConfig> backend_config_;

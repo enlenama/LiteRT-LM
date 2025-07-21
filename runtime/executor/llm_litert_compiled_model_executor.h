@@ -125,7 +125,8 @@ class LlmLiteRtCompiledModelExecutor : public LlmExecutor {
       ModelSignatures signatures, int batch_size, std::string weight_cache_path,
       std::unique_ptr<EmbeddingLookupText> embedding_lookup = nullptr,
       std::unique_ptr<EmbeddingLookupText> per_layer_embedding_lookup = nullptr,
-      LogitsDataType logits_data_type = LogitsDataType::FLOAT32)
+      LogitsDataType logits_data_type = LogitsDataType::FLOAT32,
+      int context_size = 0, bool ring_buffer_enabled = false)
       : executor_settings_(std::move(executor_settings)),
         env_(std::move(env)),
         model_(*model),
@@ -144,7 +145,9 @@ class LlmLiteRtCompiledModelExecutor : public LlmExecutor {
         weight_cache_path_(weight_cache_path),
         embedding_lookup_(std::move(embedding_lookup)),
         per_layer_embedding_lookup_(std::move(per_layer_embedding_lookup)),
-        logits_data_type_(logits_data_type) {}
+        logits_data_type_(logits_data_type),
+        context_size_(context_size),
+        ring_buffer_enabled_(ring_buffer_enabled) {}
 
  private:
   // Samples output logits and write to ids_tensor.
@@ -228,6 +231,10 @@ class LlmLiteRtCompiledModelExecutor : public LlmExecutor {
   // The logits data type of the model, used to determine the data type of the
   // logits tensor for gpu sampling.
   LogitsDataType logits_data_type_;
+
+  // New flags for context size and ring buffer enabled.
+  int context_size_;
+  bool ring_buffer_enabled_;
 };
 
 }  // namespace litert::lm

@@ -72,7 +72,14 @@ ABSL_FLAG(bool, report_peak_memory_footprint, false,
 ABSL_FLAG(bool, force_f32, false,
           "Force float 32 precision for the activation data type.");
 ABSL_FLAG(bool, multi_turns, false,
-          "If true, the command line will ask for multi-turns input.");
+          "Enable multi-turns input for testing LLM execution.");
+ABSL_FLAG(bool, ring_buffer_enabled, false,
+          "If the ring buffer functionality is enabled.");
+ABSL_FLAG(int, max_model_steps, 4096,
+          "The max number of steps the model runs, in case of ring-buffer is "
+          "larger than the model context size.");
+// TODO: b/433265135 Remove this flag once the bug is fixed.
+ABSL_FLAG(int, context_size, 4096, "The actual context size of the model.");
 
 namespace {
 
@@ -150,6 +157,8 @@ absl::Status MainHelper(int argc, char** argv) {
   ASSIGN_OR_RETURN(
       EngineSettings engine_settings,
       EngineSettings::CreateDefault(std::move(model_assets), backend));
+  // ,
+  // absl::GetFlag(FLAGS_max_model_steps)));
   if (absl::GetFlag(FLAGS_force_f32)) {
     engine_settings.GetMutableMainExecutorSettings().SetActivationDataType(
         litert::lm::ActivationDataType::FLOAT32);
@@ -168,6 +177,9 @@ absl::Status MainHelper(int argc, char** argv) {
   }
   ABSL_LOG(INFO) << "executor_settings: "
                  << engine_settings.GetMainExecutorSettings();
+  ABSL_CHECK_OK(engine_settings.setBufferandModelStepSettings(
+      absl::GetFlag(FLAGS_ring_buffer_enabled),
+      absl::GetFlag(FLAGS_max_model_steps), absl::GetFlag(FLAGS_context_size)));
 
   if (absl::GetFlag(FLAGS_benchmark)) {
     litert::lm::proto::BenchmarkParams benchmark_params;

@@ -56,6 +56,10 @@ class EngineSettings {
   static absl::StatusOr<EngineSettings> CreateDefault(
       ModelAssets model_assets, Backend backend = Backend::CPU);
 
+  absl::Status setBufferandModelStepSettings(bool ring_buffer_enabled,
+                                             int max_model_steps,
+                                             int context_size);
+
   // Updates the EngineSettings fields by loading the metadata from the model
   // assets. The function also validates to check if all of the required fields
   // are set correctly. Returns an error if the validation fails.
