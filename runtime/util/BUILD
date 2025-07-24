@@ -276,6 +276,7 @@ cc_library(
     hdrs = ["scoped_file.h"],
     deps = [
         ":litert_status_util",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:string_view",

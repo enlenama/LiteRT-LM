@@ -20,7 +20,9 @@
 #endif
 
 #include <cstddef>
+#include <cstdint>
 
+#include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 
@@ -67,6 +69,14 @@ class ScopedFile {
   static absl::StatusOr<size_t> GetSize(PlatformFile file);
   absl::StatusOr<size_t> GetSize() const { return GetSize(file_); }
 
+  // Truncates the file to the given length. If `size` is greater than the
+  // current size of the file, the file is extended with zeros.
+  absl::Status Truncate(size_t size);
+
+  // Writes `data` to the file at the given `offset`, which may be beyond the
+  // end of the file. Returns OK if all the data is written successfully.
+  absl::Status Write(size_t offset, absl::string_view data);
+
 #if defined(_WIN32)
   // Releases ownership of the operating system file HANDLE and returns the
   // corresponding C file descriptor.
@@ -88,6 +98,12 @@ class ScopedFile {
 #endif
 
  private:
+  enum class SeekFrom {
+    kBeginning = 0,
+    kCurrent = 1,
+    kEnd = 2,
+  };
+
   PlatformFile Release() {
     PlatformFile temp = file_;
     file_ = kInvalidPlatformFile;
@@ -99,6 +115,15 @@ class ScopedFile {
   // `PlatformFile` is valid. This must be ensured by the caller.
   static void CloseFile(PlatformFile file);
   static absl::StatusOr<size_t> GetSizeImpl(PlatformFile file);
+
+  // Changes the position of the file to an `offset`. Returns the new offset.
+  absl::StatusOr<size_t> Seek(size_t offset);
+  absl::StatusOr<size_t> SeekImpl(SeekFrom whence, int64_t offset);
+
+  // Get the offset of the current position of the file descriptor.
+  absl::StatusOr<size_t> GetCurrentPosition();
+
+  absl::StatusOr<size_t> WriteAtCurrentPosition(absl::string_view data);
 
   PlatformFile file_;
 };

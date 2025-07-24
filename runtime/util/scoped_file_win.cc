@@ -18,12 +18,14 @@
 
 #include <cerrno>
 #include <cstddef>
+#include <cstdint>
 
+#include "absl/log/absl_check.h"  // from @com_google_absl
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "runtime/util/scoped_file.h"
-#include "runtime/util/status_macros.h"
+#include "runtime/util/status_macros.h"  // IWYU pragma: keep
 
 namespace litert::lm {
 namespace {
@@ -64,16 +66,20 @@ absl::StatusOr<ScopedFile> ScopedFile::OpenWritable(absl::string_view path) {
   return OpenImpl(path, FILE_ATTRIBUTE_NORMAL);
 }
 
-// static
-void ScopedFile::CloseFile(HANDLE file) { ::CloseHandle(file); }
+absl::Status ScopedFile::Truncate(size_t size) {
+  ABSL_CHECK_LE(size, std::numeric_limits<int64_t>::max());
 
-// static
-absl::StatusOr<size_t> ScopedFile::GetSizeImpl(HANDLE file) {
-  LARGE_INTEGER size;
-  if (!::GetFileSizeEx(file, &size)) {
-    return absl::UnknownError("Failed to get file size");
+  ASSIGN_OR_RETURN(size_t old_size, GetCurrentPosition());
+
+  // Move the file pointer to set the new size.
+  ASSIGN_OR_RETURN(size_t _, Seek(size));
+  if (!::SetEndOfFile(file_)) {
+    return absl::UnknownError("Failed to truncate file");
   }
-  return static_cast<size_t>(size.QuadPart);
+
+  // Set the file pointer back to the original position.
+  ASSIGN_OR_RETURN(_, Seek(old_size));
+  return absl::OkStatus();
 }
 
 namespace {
@@ -128,6 +134,42 @@ absl::StatusOr<int> ScopedFile::ReleaseAsCFileDescriptor() {
   }
   Release();
   return fd;
+}
+
+// static
+void ScopedFile::CloseFile(HANDLE file) { ::CloseHandle(file); }
+
+// static
+absl::StatusOr<size_t> ScopedFile::GetSizeImpl(HANDLE file) {
+  LARGE_INTEGER size;
+  if (!::GetFileSizeEx(file, &size)) {
+    return absl::UnknownError("Failed to get file size");
+  }
+  return static_cast<size_t>(size.QuadPart);
+}
+
+absl::StatusOr<size_t> ScopedFile::SeekImpl(SeekFrom whence, int64_t offset) {
+  static_assert(static_cast<int>(SeekFrom::kBeginning) == FILE_BEGIN);
+  static_assert(static_cast<int>(SeekFrom::kCurrent) == FILE_CURRENT);
+  static_assert(static_cast<int>(SeekFrom::kEnd) == FILE_END);
+
+  LARGE_INTEGER distance, new_offset;
+  distance.QuadPart = offset;
+  DWORD move_method = static_cast<DWORD>(whence);
+  if (!::SetFilePointerEx(file_, distance, &new_offset, move_method)) {
+    return absl::UnknownError("Failed to seek file");
+  }
+  return new_offset.QuadPart;
+}
+
+absl::StatusOr<size_t> ScopedFile::WriteAtCurrentPosition(
+    absl::string_view data) {
+  DWORD bytes_written;
+  DWORD size = static_cast<DWORD>(data.size());
+  if (!::WriteFile(file_, data.data(), size, &bytes_written, nullptr)) {
+    return absl::UnknownError("Failed to write to file");
+  }
+  return bytes_written;
 }
 
 }  // namespace litert::lm

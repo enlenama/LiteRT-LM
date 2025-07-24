@@ -41,7 +41,6 @@ void WriteFile(absl::string_view path, absl::string_view contents) {
   ofstr << contents;
 }
 
-[[maybe_unused]]
 std::string ReadFile(absl::string_view path) {
   std::ifstream ifstr{std::string(path)};
   std::stringstream sstr;
@@ -164,6 +163,66 @@ TEST(ScopedFile, ReleaseAsCFileDescriptorWorksForAWritableFile) {
 }
 
 #endif  // defined(_WIN32)
+
+TEST(ScopedFile, Truncate) {
+  auto path = std::filesystem::path(::testing::TempDir()) / "file.txt";
+  WriteFile(path.string(), "foo bar");
+
+  ASSERT_OK_AND_ASSIGN(auto file, ScopedFile::OpenWritable(path.string()));
+  ASSERT_OK(file.Truncate(3));
+
+  EXPECT_THAT(file.GetSize(), IsOkAndHolds(3));
+  std::string file_contents = ReadFile(path.string());
+  EXPECT_EQ(file_contents, "foo");
+}
+
+TEST(ScopedFile, TruncateToZero) {
+  auto path = std::filesystem::path(::testing::TempDir()) / "file.txt";
+  WriteFile(path.string(), "foo bar");
+
+  ASSERT_OK_AND_ASSIGN(auto file, ScopedFile::OpenWritable(path.string()));
+  ASSERT_OK(file.Truncate(0));
+
+  EXPECT_THAT(file.GetSize(), IsOkAndHolds(0));
+  std::string file_contents = ReadFile(path.string());
+  EXPECT_EQ(file_contents, "");
+}
+
+TEST(ScopedFile, TruncateToLargerSize) {
+  auto path = std::filesystem::path(::testing::TempDir()) / "file.txt";
+  WriteFile(path.string(), "foo");
+
+  ASSERT_OK_AND_ASSIGN(auto file, ScopedFile::OpenWritable(path.string()));
+  ASSERT_OK(file.Truncate(7));
+
+  EXPECT_THAT(file.GetSize(), IsOkAndHolds(7));
+  std::string file_contents = ReadFile(path.string());
+  EXPECT_EQ(file_contents, std::string("foo\0\0\0\0", 7));
+}
+
+TEST(ScopedFile, Write) {
+  auto path = std::filesystem::path(::testing::TempDir()) / "file.txt";
+  WriteFile(path.string(), "foo bar");
+
+  ASSERT_OK_AND_ASSIGN(auto file, ScopedFile::OpenWritable(path.string()));
+  ASSERT_OK(file.Write(4, "baz"));
+
+  EXPECT_THAT(file.GetSize(), IsOkAndHolds(7));
+  std::string file_contents = ReadFile(path.string());
+  EXPECT_EQ(file_contents, "foo baz");
+}
+
+TEST(ScopedFile, WriteBeyondEnd) {
+  auto path = std::filesystem::path(::testing::TempDir()) / "file.txt";
+  WriteFile(path.string(), "foo");
+
+  ASSERT_OK_AND_ASSIGN(auto file, ScopedFile::OpenWritable(path.string()));
+  ASSERT_OK(file.Write(7, "bar"));
+
+  EXPECT_THAT(file.GetSize(), IsOkAndHolds(10));
+  std::string file_contents = ReadFile(path.string());
+  EXPECT_EQ(file_contents, std::string("foo\0\0\0\0bar", 10));
+}
 
 }  // namespace
 }  // namespace litert::lm

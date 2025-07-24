@@ -15,9 +15,14 @@
 #include "runtime/util/scoped_file.h"
 
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 
+#include "absl/log/absl_check.h"  // from @com_google_absl
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
+#include "absl/strings/string_view.h"  // from @com_google_absl
+#include "runtime/util/status_macros.h"  // IWYU pragma: keep
 
 namespace litert::lm {
 
@@ -35,6 +40,25 @@ absl::StatusOr<size_t> ScopedFile::GetSize(PlatformFile file) {
     return absl::FailedPreconditionError("Scoped file is not valid");
   }
   return GetSizeImpl(file);
+}
+
+absl::Status ScopedFile::Write(size_t offset, absl::string_view data) {
+  ASSIGN_OR_RETURN(size_t _, Seek(offset));
+
+  while (!data.empty()) {
+    ASSIGN_OR_RETURN(size_t bytes_written, WriteAtCurrentPosition(data));
+    data = data.substr(bytes_written);
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<size_t> ScopedFile::Seek(size_t offset) {
+  ABSL_CHECK_LE(offset, std::numeric_limits<int64_t>::max());
+  return SeekImpl(SeekFrom::kBeginning, offset);
+}
+
+absl::StatusOr<size_t> ScopedFile::GetCurrentPosition() {
+  return SeekImpl(SeekFrom::kCurrent, /*offset=*/0);
 }
 
 }  // namespace litert::lm
