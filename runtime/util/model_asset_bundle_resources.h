@@ -46,8 +46,7 @@ class ModelAssetBundleResources {
 
   // Convenience method to create from a ScopedFile directly.
   static absl::StatusOr<std::unique_ptr<ModelAssetBundleResources>> Create(
-      const std::string& tag,
-      ScopedFile&& model_asset_bundle_file);
+      const std::string& tag, ScopedFile&& model_asset_bundle_file);
 
   // ModelResources is neither copyable nor movable.
   ModelAssetBundleResources(const ModelAssetBundleResources&) = delete;

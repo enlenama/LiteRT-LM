@@ -310,6 +310,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -330,6 +331,7 @@ cc_library(
     hdrs = ["zip_readonly_mem_file.h"],
     deps = [
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
         "@minizip//:zlib_minizip",
         "@zlib//:zlib",
     ],
@@ -351,6 +353,19 @@ cc_library(
         "@com_google_absl//absl/strings:string_view",
         "@minizip//:zlib_minizip",
         "@zlib//:zlib",
+    ],
+)
+
+cc_test(
+    name = "zip_utils_test",
+    srcs = ["zip_utils_test.cc"],
+    data = ["//runtime/testdata"],
+    deps = [
+        ":memory_mapped_file",
+        ":test_utils",
+        ":zip_utils",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/strings:string_view",
     ],
 )
 
