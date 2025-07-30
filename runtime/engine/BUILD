@@ -15,6 +15,8 @@
 package(
     default_hdrs_check = "strict",
     default_visibility = [
+        "//learning/brain/mobile/lite/tooling/ai_edge_hub:__subpackages__",
+        "//third_party/odml/infra/perf/litert_lm:__subpackages__",
         "//:__subpackages__",
     ],
 )
