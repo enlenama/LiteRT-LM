@@ -44,4 +44,6 @@ message SamplerParameters {
   float temperature = 4;
   // The seed used to initialize the random number generator.
   optional int32 seed = 5;
+  // Whether perplexity is computed.
+  optional bool is_perplexity_computed = 6;
 }

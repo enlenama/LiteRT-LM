@@ -20,10 +20,9 @@ class TopPSampler : public Sampler {
   // - p: The top-p probability mass to consider.
   // - batch_size: The batch size of the input logits.
   // - seed: The seed for the random number generator.
-  static absl::StatusOr<std::unique_ptr<TopPSampler>> Create(int k, float p,
-                                                             float temperature,
-                                                             int batch_size,
-                                                             int seed);
+  static absl::StatusOr<std::unique_ptr<TopPSampler>> Create(
+      int k, float p, float temperature, int batch_size, int seed,
+      bool is_perplexity_computed);
 
   // Given a batch of logits, samples a batch of token ids.
   // The expected shape of the logits is [batch_size, vocab_size].
@@ -35,10 +34,21 @@ class TopPSampler : public Sampler {
                                         TensorBuffer& ids_tensor,
                                         TensorBuffer* scores_tensor) override;
 
+  absl::StatusOr<float> GetPerplexity() override {
+    if (is_perplexity_computed_) {
+      return perplexity_;
+    }
+    return absl::UnimplementedError("Perplexity is not computed.");
+  }
+
  private:
   explicit TopPSampler(int k, float p, float temperature, int batch_size,
-                       int seed)
-      : k_(k), p_(p), temperature_(temperature), batch_size_(batch_size) {
+                       int seed, bool is_perplexity_computed)
+      : k_(k),
+        p_(p),
+        temperature_(temperature),
+        batch_size_(batch_size),
+        is_perplexity_computed_(is_perplexity_computed) {
     absl::SeedSeq proper_seed_seq({seed});
     absl::BitGen rng(proper_seed_seq);
     generator_ = std::move(rng);
@@ -50,6 +60,8 @@ class TopPSampler : public Sampler {
   const float temperature_;
   const int batch_size_;
   absl::BitGen generator_;
+  bool is_perplexity_computed_ = false;
+  float perplexity_ = 0.0f;
 
   // The logits data to be used for sampling. Having it as a member to avoid
   // re-allocating the vector for each sampling call.

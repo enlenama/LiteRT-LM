@@ -56,6 +56,8 @@ class SessionBasic : public Engine::Session {
 
   virtual ~SessionBasic();
 
+  absl::StatusOr<float> GetPerplexity() override;
+
   absl::StatusOr<Responses> GenerateContent(
       const std::vector<InputData>& contents) override;
   absl::Status GenerateContentStream(

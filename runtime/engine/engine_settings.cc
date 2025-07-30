@@ -40,6 +40,18 @@ std::ostream& operator<<(std::ostream& os,
 
 }  // namespace
 
+bool EngineSettings::GetIsPerplexityComputed() const {
+  if (main_executor_settings_.GetBackend() == Backend::CPU) {
+    return is_perplexity_computed_;
+  } else {
+    return false;
+  }
+}
+
+void EngineSettings::SetIsPerplexityComputed(bool is_perplexity_computed) {
+  is_perplexity_computed_ = is_perplexity_computed;
+}
+
 // static
 absl::StatusOr<EngineSettings> EngineSettings::CreateDefault(
     ModelAssets model_assets, Backend backend) {
@@ -100,6 +112,14 @@ absl::Status EngineSettings::MaybeUpdateAndValidate(
       sampler_params.set_p(0.95f);
       sampler_params.set_temperature(1.0f);
       sampler_params.set_seed(0);
+      if (GetIsPerplexityComputed()) {
+        if (backend == Backend::CPU) {
+          sampler_params.set_is_perplexity_computed(true);
+        } else {
+          return absl::InvalidArgumentError(
+              "Perplexity is only supported on CPU backend.");
+        }
+      }
     } else {
       return absl::InvalidArgumentError(
           absl::StrCat("Not recognized backend: ", backend));

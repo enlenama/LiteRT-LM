@@ -133,9 +133,27 @@ absl::StatusOr<std::vector<float>> Softmax(
   return probabilities;
 };
 
+absl::Status GetBatchPerplexity(absl::Span<const float> logits,
+                                std::vector<int>& sampled_ids,
+                                float& perplexity, float temperature,
+                                int vocab_size, int batch_size) {
+  // Get all indices and their probabilities for calculating perplexity.
+  auto all_indices = TopKIndicies(logits, vocab_size, batch_size);
+  if (!all_indices.ok()) return all_indices.status();
+  std::vector<float> all_logit_values;
+  auto all_probabilities =
+      Softmax(logits, *all_indices, temperature, batch_size, all_logit_values);
+  if (!all_probabilities.ok()) return all_probabilities.status();
+  for (int b = 0; b < batch_size; ++b) {
+    perplexity += -1 * std::log((*all_probabilities)[sampled_ids[b]]);
+  }
+  return absl::OkStatus();
+}
+
 absl::StatusOr<std::vector<int>> TopKTopPSampling(
     absl::Span<const float> logits, int k, float p, float temperature,
-    absl::BitGen& rng, int batch_size, std::vector<float>& sampled_scores) {
+    absl::BitGen& rng, int batch_size, std::vector<float>& sampled_scores,
+    bool is_perplexity_computed, float& perplexity) {
   if (logits.empty()) {
     return absl::InvalidArgumentError("Logits vector cannot be empty.");
   }
@@ -168,6 +186,10 @@ absl::StatusOr<std::vector<int>> TopKTopPSampling(
   if (k == 1) {  // Greedy sampling. Return the topk_indices directly.
     sampled_ids.assign(topk_indices->begin(), topk_indices->end());
     sampled_scores = std::vector<float>(batch_size, 1.0f);
+    if (is_perplexity_computed) {
+      auto status = GetBatchPerplexity(logits, sampled_ids, perplexity,
+                                       temperature, vocab_size, batch_size);
+    }
     return sampled_ids;
   }
   sampled_ids.resize(batch_size);
@@ -229,6 +251,10 @@ absl::StatusOr<std::vector<int>> TopKTopPSampling(
         break;
       }
     }
+  }
+  if (is_perplexity_computed) {
+    auto status = GetBatchPerplexity(logits, sampled_ids, perplexity,
+                                     temperature, vocab_size, batch_size);
   }
   return sampled_ids;
 }

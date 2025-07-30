@@ -73,6 +73,8 @@ ABSL_FLAG(bool, force_f32, false,
           "Force float 32 precision for the activation data type.");
 ABSL_FLAG(bool, multi_turns, false,
           "If true, the command line will ask for multi-turns input.");
+ABSL_FLAG(bool, perplexity, false,
+          "If true, the command line will compute the perplexity.");
 
 namespace {
 
@@ -219,6 +221,7 @@ absl::Status MainHelper(int argc, char** argv) {
     engine_settings.GetMutableMainExecutorSettings().SetActivationDataType(
         litert::lm::ActivationDataType::FLOAT32);
   }
+  engine_settings.SetIsPerplexityComputed(absl::GetFlag(FLAGS_perplexity));
   auto session_config = litert::lm::SessionConfig::CreateDefault();
   auto sampler_backend_str = absl::GetFlag(FLAGS_sampler_backend);
   if (!sampler_backend_str.empty()) {
@@ -259,6 +262,13 @@ absl::Status MainHelper(int argc, char** argv) {
   } else {
     std::string input_prompt = absl::GetFlag(FLAGS_input_prompt);
     RunSingleTurn(llm->get(), session->get(), input_prompt);
+  }
+
+  auto perplexity = (*session)->GetPerplexity();
+  if (perplexity.ok()) {
+    ABSL_LOG(INFO) << "Perplexity: " << *perplexity;
+  } else {
+    ABSL_LOG(INFO) << "Perplexity is not supported.";
   }
 
   if (absl::GetFlag(FLAGS_report_peak_memory_footprint)) {

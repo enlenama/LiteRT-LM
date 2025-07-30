@@ -111,6 +111,9 @@ class Engine {
     // Returns the benchmark info for the session. Returns error if the
     // benchmark is not enabled.
     virtual absl::StatusOr<BenchmarkInfo> GetBenchmarkInfo() = 0;
+
+    // Virtual function, the perplexity is computed in session basic.
+    virtual absl::StatusOr<float> GetPerplexity() = 0;
   };
 
   // Method to create Engine.

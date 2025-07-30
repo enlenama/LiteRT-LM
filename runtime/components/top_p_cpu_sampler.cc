@@ -41,7 +41,8 @@ absl::Status ValidateTensor(const TensorBuffer& tensor, int max_num_dims,
 }  // namespace
 
 absl::StatusOr<std::unique_ptr<TopPSampler>> TopPSampler::Create(
-    int k, float p, float temperature, int batch_size, int seed) {
+    int k, float p, float temperature, int batch_size, int seed,
+    bool is_perplexity_computed) {
   if (k <= 0) {
     return absl::InvalidArgumentError("k must be positive.");
   }
@@ -55,7 +56,8 @@ absl::StatusOr<std::unique_ptr<TopPSampler>> TopPSampler::Create(
     return absl::InvalidArgumentError(
         absl::StrCat("Temperature must be positive, but got ", temperature));
   }
-  return absl::WrapUnique(new TopPSampler(k, p, temperature, batch_size, seed));
+  return absl::WrapUnique(new TopPSampler(k, p, temperature, batch_size, seed,
+                                          is_perplexity_computed));
 }
 
 absl::Status TopPSampler::SampleToIdAndScoreBuffer(
@@ -88,7 +90,8 @@ absl::Status TopPSampler::SampleToIdAndScoreBuffer(
   }
   std::vector<float> sampled_scores;
   auto sampled_ids = TopKTopPSampling(logits_data, k_, p_, temperature_,
-                                      generator_, batch_size_, sampled_scores);
+                                      generator_, batch_size_, sampled_scores,
+                                      is_perplexity_computed_, perplexity_);
   if (!sampled_ids.ok()) {
     return sampled_ids.status();
   }

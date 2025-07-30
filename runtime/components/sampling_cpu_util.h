@@ -45,7 +45,8 @@ absl::StatusOr<std::vector<float>> Softmax(
 //     sampled_scores are always 1.0.
 absl::StatusOr<std::vector<int>> TopKTopPSampling(
     absl::Span<const float> logits, int k, float p, float temperature,
-    absl::BitGen& rng, int batch_size, std::vector<float>& sampled_scores);
+    absl::BitGen& rng, int batch_size, std::vector<float>& sampled_scores,
+    bool is_perplexity_computed, float& perplexity);
 
 }  // namespace litert::lm
 

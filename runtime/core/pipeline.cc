@@ -166,6 +166,8 @@ class DecodeExternalSampling {
     return stop_token_detector_.GetStopTokensFound();
   }
 
+  absl::StatusOr<float> GetPerplexity() { return sampler_.GetPerplexity(); }
+
  private:
   LlmExecutor& executor_;
   Tokenizer& tokenizer_;
