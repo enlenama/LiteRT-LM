@@ -39,7 +39,8 @@ class TopPSampler : public Sampler {
     if (compute_perplexity_) {
       return perplexity_;
     }
-    return absl::UnimplementedError("Perplexity is not computed.");
+    return absl::InternalError(
+        "Perplexity is not computed but has been requested.");
   }
 
  private:

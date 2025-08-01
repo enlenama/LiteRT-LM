@@ -83,6 +83,11 @@ class EngineSettings {
   // created and returned.
   proto::LlmMetadata& GetMutableLlmMetadata();
 
+  // Whether perplexity is computed.
+  bool GetComputePerplexity() const;
+  // Sets whether perplexity is computed.
+  void SetComputePerplexity(bool compute_perplexity);
+
  private:
   explicit EngineSettings(
       LlmExecutorSettings executor_settings,
@@ -97,6 +102,9 @@ class EngineSettings {
   // Default metadata for the model. This is loaded from the model assets (if
   // present).
   std::optional<proto::LlmMetadata> metadata_;
+
+  // Whether perplexity is computed.
+  bool compute_perplexity_ = false;
 };
 std::ostream& operator<<(std::ostream& os, const EngineSettings& settings);
 

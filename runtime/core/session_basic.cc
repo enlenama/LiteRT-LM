@@ -72,6 +72,13 @@ SessionBasic::~SessionBasic() {
   }
 }
 
+absl::StatusOr<float> SessionBasic::GetPerplexity() {
+  if (sampler_ == nullptr) {
+    return absl::InternalError("Sampler is not initialized.");
+  }
+  return sampler_->GetPerplexity();
+}
+
 absl::Status SessionBasic::PrefillInternal(absl::string_view input,
                                            bool wait_for_completion) {
   // TODO(b/397975034): Consider to utilize a prompt formatting logic in a
