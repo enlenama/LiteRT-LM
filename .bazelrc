@@ -62,6 +62,13 @@ build --define framework_shared_object=true
 build --define tsl_protobuf_header_only=true
 
 build --define=allow_oversize_protos=true
+# ERROR: D:/w-44b59c1b/external/com_google_protobuf/src/google/protobuf/stubs/BUILD.bazel:12:11: 
+# Compiling src/google/protobuf/stubs/common.cc [for tool] failed: (Exit 2): cl.exe failed: 
+# error executing CppCompile command (from target @@com_google_protobuf//src/google/protobuf/stubs:lite) 
+# bazel-out/x64_windows-opt-exec-ST-0465588ec812/bin/external/com_google_protobuf/src/google/protobuf/stubs/_virtual_includes/lite\google/protobuf/stubs/port.h(38): 
+# fatal error C1189: #error:      
+# "Protobuf will be dropping support for MSVC + Bazel in 34.0.  To continue using it until then, use the flag --define=protobuf_allow_msvc=true. "
+build --define=protobuf_allow_msvc=true
 
 build --spawn_strategy=standalone
 build -c opt
