@@ -82,6 +82,8 @@ std::ostream& operator<<(std::ostream& os, const GpuConfig& config);
 struct CpuConfig {
   // Number of threads. The default value is 4.
   uint32_t number_of_threads = 4;
+  // Enable TFLite op profiler.
+  bool enable_tflite_op_profiler = false;
 };
 std::ostream& operator<<(std::ostream& os, const CpuConfig& config);
 
