@@ -921,6 +921,12 @@ absl::Status LlmLiteRtNpuCompiledModelExecutor::Decode(
   return absl::OkStatus();
 }
 
+absl::Status LlmLiteRtNpuCompiledModelExecutor::SetCurrentStep(int new_step) {
+  // TODO(b/405424188): Implement support for setting the current step.
+  ABSL_LOG(WARNING) << "Ignoring SetCurrentStep call.";
+  return absl::OkStatus();
+};
+
 absl::StatusOr<int> LlmLiteRtNpuCompiledModelExecutor::GetVocabSize() {
   LITERT_ASSIGN_OR_RETURN(
       auto logits_tensor_type,

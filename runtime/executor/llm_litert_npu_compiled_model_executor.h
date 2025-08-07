@@ -98,6 +98,9 @@ class LlmLiteRtNpuCompiledModelExecutor : public LlmExecutor {
     return "LiteRT NPU Compiled Model";
   }
 
+  // Set the current step of the executor.
+  absl::Status SetCurrentStep(int new_step) override;
+
   // Gets the current step of the executor.
   // Public API, the return value is the current step that user expects (e.g.
   // users prefill 100 tokens, then they expect the current step to be 100). It
