@@ -275,6 +275,7 @@ cc_library(
         "//runtime/components:model_resources",
         "//runtime/components:model_resources_litert_lm",
         "//runtime/components:model_resources_task",
+        "//runtime/executor:llm_executor_processed_tokens",
         "//runtime/util:convert_tensor_buffer",
         "//runtime/util:litert_status_util",
     ] + select({
@@ -293,6 +294,16 @@ cc_library(
             "@litert//litert/cc/internal:litert_tensor_buffer",
         ],
     }),
+)
+
+cc_library(
+    name = "llm_executor_processed_tokens",
+    hdrs = ["llm_executor_processed_tokens.h"],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
+    ],
 )
 
 cc_library(
