@@ -68,8 +68,7 @@ class LlmLiteRtNpuCompiledModelExecutor : public LlmExecutor {
   // Creates an executor from the resources.
   static absl::StatusOr<std::unique_ptr<LlmLiteRtNpuCompiledModelExecutor>>
   Create(
-      const LlmExecutorSettings& executor_settings,
-      std::unique_ptr<ModelResources> resources,
+      const LlmExecutorSettings& executor_settings, ModelResources& resources,
       const std::optional<std::string>& dispatch_library_path = std::nullopt);
 
   // Input APIs:
@@ -190,9 +189,7 @@ class LlmLiteRtNpuCompiledModelExecutor : public LlmExecutor {
 
  protected:
   LlmLiteRtNpuCompiledModelExecutor(
-      LlmExecutorSettings executor_settings,
-      std::unique_ptr<ModelResources> resources,
-      EmbedderContext embedder_context,
+      LlmExecutorSettings executor_settings, EmbedderContext embedder_context,
       NpuAuxiliaryContext npu_auxiliary_context, InferenceContext mask_context,
       InferenceContext rope_context, ::litert::Environment llm_env,
       ::litert::CompiledModel llm_compiled_model,
@@ -202,7 +199,6 @@ class LlmLiteRtNpuCompiledModelExecutor : public LlmExecutor {
       std::optional<EmbedderPerLayerContext> embedder_per_layer_context =
           std::nullopt)
       : executor_settings_(std::move(executor_settings)),
-        resources_(std::move(resources)),
         embedder_context_(std::move(embedder_context)),
         npu_auxiliary_context_(std::move(npu_auxiliary_context)),
         mask_context_(std::move(mask_context)),
