@@ -296,6 +296,16 @@ cc_library(
 )
 
 cc_library(
+    name = "llm_executor_processed_tokens",
+    hdrs = ["llm_executor_processed_tokens.h"],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
     name = "llm_executor_settings",
     srcs = ["llm_executor_settings.cc"],
     hdrs = ["llm_executor_settings.h"],
