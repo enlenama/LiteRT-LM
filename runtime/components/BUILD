@@ -40,55 +40,6 @@ config_setting(
 )
 
 cc_library(
-    name = "embedding_lookup",
-    hdrs = ["embedding_lookup.h"],
-    deps = [
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/types:span",
-    ] + select({
-        "//:litert_lm_link_capi_so": [
-            "@litert//litert/cc:litert_tensor_buffer",
-        ],
-        "//conditions:default": [
-            "@litert//litert/cc/internal:litert_tensor_buffer",
-        ],
-    }),
-)
-
-cc_library(
-    name = "embedding_lookup_text",
-    srcs = ["embedding_lookup_text.cc"],
-    hdrs = ["embedding_lookup_text.h"],
-    deps = [
-        ":embedding_lookup",
-        "@com_google_absl//absl/base:nullability",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:string_view",
-        "@com_google_absl//absl/types:span",
-        "@litert//litert/c:litert_common",
-        "@litert//litert/cc:litert_element_type",
-        "@litert//litert/cc:litert_macros",
-        "@litert//litert/cc:litert_model",
-        "//runtime/util:litert_status_util",
-    ] + select({
-        "//:litert_lm_link_capi_so": [
-            "@litert//litert/cc:litert_compiled_model",
-            "@litert//litert/cc:litert_environment",
-            "@litert//litert/cc:litert_options",
-            "@litert//litert/cc:litert_tensor_buffer",
-        ],
-        "//conditions:default": [
-            "@litert//litert/cc/internal:litert_compiled_model",
-            "@litert//litert/cc/internal:litert_environment",
-            "@litert//litert/cc/internal:litert_options",
-            "@litert//litert/cc/internal:litert_tensor_buffer",
-        ],
-    }),
-)
-
-cc_library(
     name = "tokenizer",
     hdrs = ["tokenizer.h"],
     deps = [
