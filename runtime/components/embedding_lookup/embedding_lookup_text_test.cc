@@ -1,4 +1,4 @@
-#include "runtime/components/embedding_lookup_text.h"
+#include "runtime/components/embedding_lookup/embedding_lookup_text.h"
 
 #include <cstddef>
 #include <cstdint>
