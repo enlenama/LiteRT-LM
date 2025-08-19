@@ -75,9 +75,13 @@ class PipelineTest : public testing::Test {
     // "How's it going?" followed by the stop token id (2294).
     std::vector<std::vector<int>> decode_tokens = {{224}, {24}, {8},    {66},
                                                    {246}, {18}, {2295}, {2294}};
-    // Vocab size needs to at least be larger than the largest token id 2294.
+    // A secondary, less-likely response: " How have you been?"
+    std::vector<std::vector<int>> secondary_decode_tokens = {
+        {224}, {113}, {19}, {237}, {36}, {40}, {2295}};
+    // Vocab size needs to at least be larger than the largest token id 2295.
     executor_ = std::make_unique<FakeLlmExecutor>(
-        /*vocab_size=*/2560, prefill_tokens, decode_tokens);
+        /*vocab_size=*/2560, prefill_tokens, decode_tokens, /*batch_size=*/2,
+        secondary_decode_tokens);
   }
 
   std::unique_ptr<Tokenizer> tokenizer_;
@@ -228,6 +232,66 @@ TEST_F(PipelineTest, DecodeStopTokenIsPartialBytePairEncodingTokens) {
   // Empty response as the stop token is encoded as a partial byte pair encoding
   // token.
   EXPECT_EQ(*(responses->GetResponseTextAt(0)), "");
+}
+
+TEST_F(PipelineTest, ScorePerfectMatch) {
+  // Enable scoring mode to bypass input validation in the fake executor.
+  executor_->SetScoringMode(true);
+
+  std::optional<BenchmarkInfo> benchmark_info;
+  const int num_output_candidates = 1;
+  std::vector<InputData> target_inputs;
+  target_inputs.emplace_back(InputText(" How's it going?"));
+
+  auto decoded_ids = CreateTensorBuffer<int>({num_output_candidates, 1});
+  auto responses = Score(*executor_, *tokenizer_, target_inputs,
+                         num_output_candidates, *decoded_ids, benchmark_info);
+  EXPECT_OK(responses);
+  EXPECT_EQ(*(responses->GetResponseTextAt(0)), " How's it going?");
+  // A final score of 0.0 indicates a perfect match.
+  EXPECT_EQ(*(responses->GetScoreAt(0)), 0.0f);
+}
+
+TEST_F(PipelineTest, ScoreMultipleTargets) {
+  // Enable scoring mode to bypass input validation in the fake executor.
+  executor_->SetScoringMode(true);
+
+  std::optional<BenchmarkInfo> benchmark_info;
+  const int num_output_candidates = 2;
+  std::vector<InputData> target_inputs;
+  target_inputs.emplace_back(InputText(" How have you been?"));
+  target_inputs.emplace_back(InputText(" How's it going?"));
+
+  auto decoded_ids = CreateTensorBuffer<int>({num_output_candidates, 1});
+  auto responses = Score(*executor_, *tokenizer_, target_inputs,
+                         num_output_candidates, *decoded_ids, benchmark_info);
+  EXPECT_OK(responses);
+  EXPECT_EQ(*(responses->GetResponseTextAt(0)), " How have you been?");
+  EXPECT_EQ(*(responses->GetResponseTextAt(1)), " How's it going?");
+  // For the first candidate (" How have you been?"):
+  // Total LogProb = 2 * 0.0 + 5 * (-50.0) = -250.0
+  // Number of tokens = 7
+  // Average LogProb = -250.0 / 7 = -35.714285714
+  // The second candidate (" How's it going?") has a perfect score of 0.0.
+  EXPECT_LT(*(responses->GetScoreAt(0)), *(responses->GetScoreAt(1)));
+}
+
+TEST_F(PipelineTest, ScoreEmptyTarget) {
+  // Enable scoring mode to bypass input validation in the fake executor.
+  executor_->SetScoringMode(true);
+
+  std::optional<BenchmarkInfo> benchmark_info;
+  const int num_output_candidates = 1;
+  std::vector<InputData> target_inputs;
+  target_inputs.emplace_back(InputText(""));
+
+  auto decoded_ids = CreateTensorBuffer<int>({num_output_candidates, 1});
+  auto responses = Score(*executor_, *tokenizer_, target_inputs,
+                         num_output_candidates, *decoded_ids, benchmark_info);
+  EXPECT_OK(responses);
+  EXPECT_EQ(*(responses->GetResponseTextAt(0)), "");
+  EXPECT_EQ(*(responses->GetScoreAt(0)),
+            -std::numeric_limits<float>::infinity());
 }
 
 class PipelineCustomSamplingTest : public testing::Test {

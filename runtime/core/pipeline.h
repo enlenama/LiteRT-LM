@@ -17,8 +17,8 @@
 
 #include <stdbool.h>
 
-#include <memory>
 #include <optional>
+#include <vector>
 
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
@@ -67,7 +67,7 @@ absl::Status DecodeStreaming(LlmExecutor& executor, Tokenizer& tokenizer,
 // Runs the pipeline to decode the input prompt.
 // - executor: The executor that call the core LLM model.
 // - tokenizer: The tokenizer to decode the token ids into text.
-// - stop_token_ids: The token ids to stop the decoding process.
+// - stop_token_detector: The detector for stop token sequences.
 // - num_output_candidates: The number of output candidates to generate.
 // - sampler: The sampler to sample the token ids from the logits.
 // - decoded_ids: The decoded token ids from the external sampling process.
@@ -89,6 +89,20 @@ absl::Status DecodeCustomSamplingStreaming(
     Sampler& sampler, litert::TensorBuffer& decoded_ids,
     std::optional<BenchmarkInfo>& benchmark_info,
     InferenceObservable* observer);
+
+// Runs the pipeline to score the candidate responses.
+// - executor: The executor that call the core LLM model.
+// - tokenizer: The tokenizer to encode the text into token ids.
+// - target_inputs: The target inputs to score against.
+// - num_output_candidates: The number of output candidates to generate.
+// - decoded_ids: The decoded token ids from the external sampling process.
+//   The supported shape is [num_output_candidates, 1].
+// - benchmark_info: The benchmark info to record the performance metrics.
+absl::StatusOr<Responses> Score(LlmExecutor& executor, Tokenizer& tokenizer,
+                                const std::vector<InputData>& target_inputs,
+                                int num_output_candidates,
+                                litert::TensorBuffer& decoded_ids,
+                                std::optional<BenchmarkInfo>& benchmark_info);
 
 }  // namespace litert::lm
 

@@ -16,7 +16,6 @@
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/executor/fake_llm_executor.h"
 #include "runtime/executor/llm_executor.h"
-#include "runtime/framework/thread_options.h"
 #include "runtime/framework/threadpool.h"
 #include "runtime/util/test_utils.h"  // NOLINT
 
@@ -97,6 +96,26 @@ TEST_F(SessionBasicTest, RunDecode) {
   EXPECT_EQ(*(responses->GetResponseTextAt(0)), " How's it going?");
 }
 
+TEST_F(SessionBasicTest, RunScoring) {
+  // Scoring doesn't require a stop token to end the decoding.
+  SessionConfig session_config = SessionConfig::CreateDefault();
+  session_config.SetStartTokenId(2);
+  session_config.SetSamplerBackend(Backend::CPU);
+  auto session =
+      SessionBasic::Create(executor_.get(), tokenizer_.get(), session_config,
+                           std::nullopt, worker_thread_pool_.get());
+  std::vector<InputData> inputs;
+  inputs.emplace_back(InputText("Hello World!"));
+  std::vector<InputData> targets;
+  targets.emplace_back(InputText(" How's it going?"));
+  auto responses = (*session)->ScoreCandidateResponses(inputs, targets);
+  EXPECT_OK(responses);
+  EXPECT_EQ(responses->GetNumOutputCandidates(), 1);
+
+  // A final score of 0.0f indicates a perfect match.
+  EXPECT_EQ(responses->GetMutableScores()[0], 0.0f);
+}
+
 class TestObserver : public InferenceObservable {
  public:
   void OnDone() override { done_ = true; }
@@ -121,8 +140,7 @@ TEST_F(SessionBasicTest, RunPrefillAsync) {
   std::vector<InputData> inputs;
   inputs.emplace_back(InputText("Hello World!"));
   TestObserver observer;
-  EXPECT_OK(
-      (*session)->RunPrefillAsync(inputs, &observer));
+  EXPECT_OK((*session)->RunPrefillAsync(inputs, &observer));
   // Wait for the async call to finish.
   EXPECT_OK(worker_thread_pool_->WaitUntilDone(absl::Seconds(100)));
   EXPECT_TRUE(observer.IsDone());
@@ -141,8 +159,7 @@ TEST_F(SessionBasicTest, RunDecodeAsync) {
   std::vector<InputData> inputs;
   inputs.emplace_back(InputText("Hello World!"));
   TestObserver observer;
-  EXPECT_OK(
-      (*session)->RunPrefillAsync(inputs, &observer));
+  EXPECT_OK((*session)->RunPrefillAsync(inputs, &observer));
   EXPECT_OK((*session)->RunDecodeAsync(&observer));
   EXPECT_OK(worker_thread_pool_->WaitUntilDone(absl::Seconds(100)));
   EXPECT_TRUE(observer.IsDone());

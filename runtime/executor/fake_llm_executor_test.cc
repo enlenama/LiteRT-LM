@@ -90,7 +90,7 @@ TEST(FakeLlmExecutorTest, DecodeToIds) {
   output_tokens_span = ReferTensorBufferAsSpan<int>(output_tokens);
   EXPECT_EQ((*output_tokens_span)[0], 0);
 
-  // Call Decode for the 3nd time. Should fail.
+  // Call Decode for the 3rd time. Should fail.
   EXPECT_THAT(fake_llm_executor.Decode(output_tokens),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
@@ -112,25 +112,25 @@ TEST(FakeLlmExecutorTest, DecodeToLogits) {
 
   auto output_logits = CreateTensorBuffer<float>({1, 1, 4});
   // Call Decode for the 1st time. The output logits should have values:
-  // [-inf, -inf, -inf, inf].
+  // [1.0, 1.0, 1.0, 100.0].
   EXPECT_OK(fake_llm_executor.Decode(inputs, *output_logits));
   EXPECT_EQ(fake_llm_executor.GetCurrentStep().value(), 1);
   auto output_logits_span = ReferTensorBufferAsSpan<float>(*output_logits);
-  EXPECT_LE((*output_logits_span)[0], 0.0f);
-  EXPECT_LE((*output_logits_span)[1], 0.0f);
-  EXPECT_LE((*output_logits_span)[2], 0.0f);
-  EXPECT_GE((*output_logits_span)[3], 0.0f);
+  EXPECT_LE((*output_logits_span)[0], 1.0f);
+  EXPECT_LE((*output_logits_span)[1], 1.0f);
+  EXPECT_LE((*output_logits_span)[2], 1.0f);
+  EXPECT_GE((*output_logits_span)[3], 100.0f);
 
   // Call Decode for the 2nd time. The output logits should have values:
-  // [inf, -inf, -inf, -inf].
+  // [100.0, 1.0, 1.0, 1.0].
   EXPECT_OK(fake_llm_executor.Decode(inputs, *output_logits));
   EXPECT_EQ(fake_llm_executor.GetCurrentStep().value(), 2);
-  EXPECT_GE((*output_logits_span)[0], 0.0f);
-  EXPECT_LE((*output_logits_span)[1], 0.0f);
-  EXPECT_LE((*output_logits_span)[2], 0.0f);
-  EXPECT_LE((*output_logits_span)[3], 0.0f);
+  EXPECT_GE((*output_logits_span)[0], 100.0f);
+  EXPECT_LE((*output_logits_span)[1], 1.0f);
+  EXPECT_LE((*output_logits_span)[2], 1.0f);
+  EXPECT_LE((*output_logits_span)[3], 1.0f);
 
-  // Call Decode for the 3nd time. Should fail.
+  // Call Decode for the 3rd time. Should fail.
   EXPECT_THAT(fake_llm_executor.Decode(inputs, *output_logits),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
@@ -152,27 +152,27 @@ TEST(FakeLlmExecutorTest, DecodeLogits) {
 
   auto output_logits = fake_llm_executor.DecodeLogits(inputs);
   // Call Decode for the 1st time. The output logits should have values:
-  // [-inf, -inf, -inf, inf].
+  // [1.0, 1.0, 1.0, 100.0].
   EXPECT_TRUE(output_logits.ok());
   EXPECT_EQ(fake_llm_executor.GetCurrentStep().value(), 1);
   auto output_logits_span = ReferTensorBufferAsSpan<float>(*output_logits);
-  EXPECT_LE((*output_logits_span)[0], 0.0f);
-  EXPECT_LE((*output_logits_span)[1], 0.0f);
-  EXPECT_LE((*output_logits_span)[2], 0.0f);
-  EXPECT_GE((*output_logits_span)[3], 0.0f);
+  EXPECT_LE((*output_logits_span)[0], 1.0f);
+  EXPECT_LE((*output_logits_span)[1], 1.0f);
+  EXPECT_LE((*output_logits_span)[2], 1.0f);
+  EXPECT_GE((*output_logits_span)[3], 100.0f);
 
   output_logits = fake_llm_executor.DecodeLogits(inputs);
   // Call Decode for the 2nd time. The output logits should have values:
-  // [inf, -inf, -inf, -inf].
+  // [100.0, 1.0, 1.0, 1.0].
   EXPECT_TRUE(output_logits.ok());
   EXPECT_EQ(fake_llm_executor.GetCurrentStep().value(), 2);
   output_logits_span = ReferTensorBufferAsSpan<float>(*output_logits);
-  EXPECT_GE((*output_logits_span)[0], 0.0f);
-  EXPECT_LE((*output_logits_span)[1], 0.0f);
-  EXPECT_LE((*output_logits_span)[2], 0.0f);
-  EXPECT_LE((*output_logits_span)[3], 0.0f);
+  EXPECT_GE((*output_logits_span)[0], 100.0f);
+  EXPECT_LE((*output_logits_span)[1], 1.0f);
+  EXPECT_LE((*output_logits_span)[2], 1.0f);
+  EXPECT_LE((*output_logits_span)[3], 1.0f);
 
-  // Call Decode for the 3nd time. Should fail.
+  // Call Decode for the 3rd time. Should fail.
   EXPECT_THAT(fake_llm_executor.Decode(inputs, *output_logits),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }

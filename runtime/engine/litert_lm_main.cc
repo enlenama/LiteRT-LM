@@ -21,10 +21,10 @@
 //
 // Consider run_llm_inference_engine.sh as an example to run on android device.
 
+#include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
-#include <iostream>
 #include <vector>
 
 #include "absl/base/log_severity.h"  // from @com_google_absl
@@ -36,6 +36,8 @@
 #include "absl/log/globals.h"  // from @com_google_absl
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
+#include "absl/strings/str_join.h"  // from @com_google_absl
+#include "absl/strings/str_split.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/time/time.h"  // from @com_google_absl
 #include "litert/c/litert_logging.h"  // from @litert
@@ -74,6 +76,9 @@ ABSL_FLAG(bool, force_f32, false,
           "Force float 32 precision for the activation data type.");
 ABSL_FLAG(bool, multi_turns, false,
           "If true, the command line will ask for multi-turns input.");
+ABSL_FLAG(std::string, score_targets, "",
+          "Target texts to score, separated by '|||'. Each entry will be "
+          "scored as a potential response.");
 
 namespace {
 
@@ -131,8 +136,7 @@ void RunBenchmark(litert::lm::Engine* llm,
                          "--async=false.";
     }
     InferenceObservable observable;
-    absl::Status status =
-        session->GenerateContentStream(inputs, &observable);
+    absl::Status status = session->GenerateContentStream(inputs, &observable);
     ABSL_CHECK_OK(status);
     ABSL_CHECK_OK(llm->WaitUntilDone(kWaitUntilDoneTimeout));
   } else {
@@ -147,6 +151,34 @@ void RunBenchmark(litert::lm::Engine* llm,
   ABSL_LOG(INFO) << *benchmark_info;
 }
 
+void RunScoring(litert::lm::Engine* llm, absl::string_view input_prompt,
+                const std::vector<std::string>& target_texts) {
+  if (absl::GetFlag(FLAGS_async)) {
+    ABSL_LOG(FATAL) << "Async mode does not support scoring.";
+  }
+  const auto session_config = litert::lm::SessionConfig::CreateDefault();
+  for (absl::string_view target_text : target_texts) {
+    // TODO: b/439731664 - Consider to reuse the same session for all targets.
+    absl::StatusOr<std::unique_ptr<litert::lm::Engine::Session>> session =
+        llm->CreateSession(session_config);
+    ABSL_CHECK_OK(session) << "Failed to create session.";
+    litert::lm::Engine::Session* session_ptr = session->get();
+    ABSL_LOG(INFO) << "Target text: " << target_text;
+    std::vector<litert::lm::InputData> inputs;
+    inputs.emplace_back(InputText(input_prompt));
+    std::vector<litert::lm::InputData> targets;
+    targets.emplace_back(InputText(target_text));
+    absl::StatusOr<litert::lm::Responses> responses =
+        session_ptr->ScoreCandidateResponses(inputs, targets);
+    ABSL_CHECK_OK(responses);
+    ABSL_LOG(INFO) << "Scores: "
+                   << absl::StrJoin(responses->GetMutableScores(), "|||");
+    ABSL_LOG(INFO) << "Response texts: "
+                   << absl::StrJoin(responses->GetMutableResponseTexts(),
+                                    "|||");
+  }
+}
+
 void RunSingleTurn(litert::lm::Engine* llm,
                    litert::lm::Engine::Session* session,
                    std::string& input_prompt) {
@@ -154,8 +186,7 @@ void RunSingleTurn(litert::lm::Engine* llm,
   inputs.emplace_back(InputText(input_prompt));
   if (absl::GetFlag(FLAGS_async)) {
     InferenceObservable observable;
-    absl::Status status =
-        session->GenerateContentStream(inputs, &observable);
+    absl::Status status = session->GenerateContentStream(inputs, &observable);
     ABSL_CHECK_OK(status);
     ABSL_CHECK_OK(llm->WaitUntilDone(kWaitUntilDoneTimeout));
   } else {
@@ -265,7 +296,13 @@ absl::Status MainHelper(int argc, char** argv) {
     RunMultiTurnConversation(llm->get(), session->get());
   } else {
     std::string input_prompt = absl::GetFlag(FLAGS_input_prompt);
-    RunSingleTurn(llm->get(), session->get(), input_prompt);
+    if (!absl::GetFlag(FLAGS_score_targets).empty()) {
+      std::vector<std::string> target_texts =
+          absl::StrSplit(absl::GetFlag(FLAGS_score_targets), "|||");
+      RunScoring(llm->get(), input_prompt, target_texts);
+    } else {
+      RunSingleTurn(llm->get(), session->get(), input_prompt);
+    }
   }
 
   if (absl::GetFlag(FLAGS_report_peak_memory_footprint)) {

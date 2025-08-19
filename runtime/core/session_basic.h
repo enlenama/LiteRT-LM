@@ -58,9 +58,12 @@ class SessionBasic : public Engine::Session {
 
   absl::StatusOr<Responses> GenerateContent(
       const std::vector<InputData>& contents) override;
-  absl::Status GenerateContentStream(
+  absl::Status GenerateContentStream(const std::vector<InputData>& contents,
+                                     InferenceObservable* observer) override;
+
+  absl::StatusOr<Responses> ScoreCandidateResponses(
       const std::vector<InputData>& contents,
-      InferenceObservable* observer) override;
+      const std::vector<InputData>& target_inputs) override;
 
   absl::Status RunPrefill(const std::vector<InputData>& contents) override;
   absl::Status RunPrefillAsync(const std::vector<InputData>& contents,
@@ -68,8 +71,10 @@ class SessionBasic : public Engine::Session {
 
   absl::StatusOr<Responses> RunDecode() override;
 
-  absl::Status RunDecodeAsync(
-      InferenceObservable* observer) override;
+  absl::Status RunDecodeAsync(InferenceObservable* observer) override;
+
+  absl::StatusOr<Responses> ScoreTargets(
+      const std::vector<InputData>& target_inputs) override;
 
   absl::StatusOr<BenchmarkInfo> GetBenchmarkInfo() override;
 
@@ -97,8 +102,12 @@ class SessionBasic : public Engine::Session {
   // The internal functions to decode the input prompt. It is for convenience to
   // wrap it with lambda function for scheduling.
   absl::StatusOr<Responses> DecodeInternal();
-  absl::Status DecodeInternalStreaming(
-      InferenceObservable* observer = nullptr);
+  absl::Status DecodeInternalStreaming(InferenceObservable* observer = nullptr);
+
+  // The internal function to score the target inputs. It is for convenience to
+  // wrap it with lambda function for scheduling.
+  absl::StatusOr<Responses> ScoreTargetsInternal(
+      const std::vector<InputData>& target_inputs);
 
   // The executor used for run the LLM for prefill/decode.
   LlmExecutor& executor_;

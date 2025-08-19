@@ -180,6 +180,39 @@ absl::Status SessionBasic::RunDecodeAsync(InferenceObservable* observer) {
   });
 }
 
+absl::StatusOr<Responses> SessionBasic::ScoreTargetsInternal(
+    const std::vector<InputData>& target_inputs) {
+  if (target_inputs.empty()) {
+    return absl::InvalidArgumentError("Target inputs are empty.");
+  }
+  if (target_inputs.size() > 1) {
+    // TODO: b/439731664 - Remove this restriction once the executor supports
+    // prompt state caching.
+    return absl::InvalidArgumentError(
+        "Only support scoring one target input for now.");
+  }
+  const int num_output_candidates = session_config_.GetNumOutputCandidates();
+  std::vector<int> decoded_ids(num_output_candidates, last_prefill_token_id_);
+  auto decoded_ids_buffer =
+      CopyToTensorBuffer<int>(decoded_ids, {num_output_candidates, 1});
+  ASSIGN_OR_RETURN(auto responses, Score(executor_, tokenizer_, target_inputs,
+                                         num_output_candidates,
+                                         *decoded_ids_buffer, benchmark_info_));
+  return responses;
+}
+
+absl::StatusOr<Responses> SessionBasic::ScoreTargets(
+    const std::vector<InputData>& target_inputs) {
+  ABSL_LOG(INFO) << "ScoreTargets";
+  absl::StatusOr<Responses> responses;
+  RETURN_IF_ERROR(
+      worker_thread_pool_.Schedule([this, &responses, &target_inputs]() {
+        responses = this->ScoreTargetsInternal(target_inputs);
+      }));
+  RETURN_IF_ERROR(worker_thread_pool_.WaitUntilDone(Engine::kDefaultTimeout));
+  return responses;
+}
+
 absl::StatusOr<Responses> SessionBasic::GenerateContent(
     const std::vector<InputData>& contents) {
   RETURN_IF_ERROR(RunPrefill(contents));
@@ -190,6 +223,13 @@ absl::Status SessionBasic::GenerateContentStream(
     const std::vector<InputData>& contents, InferenceObservable* observer) {
   RETURN_IF_ERROR(RunPrefillAsync(contents, observer));
   return RunDecodeAsync(observer);
+}
+
+absl::StatusOr<Responses> SessionBasic::ScoreCandidateResponses(
+    const std::vector<InputData>& contents,
+    const std::vector<InputData>& target_inputs) {
+  RETURN_IF_ERROR(RunPrefill(contents));
+  return ScoreTargets(target_inputs);
 }
 
 absl::StatusOr<BenchmarkInfo> SessionBasic::GetBenchmarkInfo() {

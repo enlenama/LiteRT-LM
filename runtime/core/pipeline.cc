@@ -14,6 +14,8 @@
 
 #include "runtime/core/pipeline.h"
 
+#include <algorithm>
+#include <cmath>
 #include <limits>
 #include <optional>
 #include <queue>
@@ -26,6 +28,7 @@
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/str_cat.h"  // from @com_google_absl
+#include "absl/strings/str_format.h"  // from @com_google_absl
 #include "absl/strings/str_replace.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
@@ -348,6 +351,163 @@ absl::StatusOr<Responses> DecodeLoop(
   return final_responses;
 }
 
+// Applies softmax to the logits to get the probability of the target ID.
+// For numerical stability, subtracts the max logit before exponentiating.
+float ComputeSoftmaxForId(absl::Span<const float> logits, const int target_id) {
+  if (logits.empty()) {
+    return 0.0f;
+  }
+  if (target_id < 0 || target_id >= logits.size()) {
+    return 0.0f;
+  }
+  const float max_logit = *std::max_element(logits.begin(), logits.end());
+  float exp_sum = 0.0f;
+  float target_exp = 0.0f;
+
+  for (int i = 0; i < logits.size(); ++i) {
+    const float exp_val = std::exp(logits[i] - max_logit);
+    if (i == target_id) {
+      target_exp = exp_val;
+    }
+    exp_sum += exp_val;
+  }
+
+  if (exp_sum == 0.0f) {
+    return 0.0f;
+  }
+  return target_exp / exp_sum;
+}
+
+absl::StatusOr<Responses> ScoreLoop(
+    LlmExecutor& executor, Tokenizer& tokenizer,
+    const std::vector<TokenIds>& target_ids, const int num_output_candidates,
+    std::optional<BenchmarkInfo>& benchmark_info,
+    std::optional<litert::TensorBuffer*> decoded_ids) {
+  if (!decoded_ids.has_value() || !decoded_ids.value()) {
+    return absl::InvalidArgumentError(
+        "Decoded ids must be provided for scoring.");
+  }
+
+  if (benchmark_info.has_value()) {
+    RETURN_IF_ERROR(benchmark_info->TimeDecodeTurnStart());
+  }
+
+  Responses final_responses(num_output_candidates);
+  LITERT_ASSIGN_OR_RETURN(auto next_token_ids_tensor,
+                          CreateTensorBuffer<int>({num_output_candidates}));
+
+  std::vector<bool> batch_done(num_output_candidates, false);
+  TokenIds next_token_ids(num_output_candidates, -1);
+  int num_decode_steps = 0;
+  // The probability of each output candidate for each step. The size of inner
+  // vector is token length of batched target input.
+  std::vector<std::vector<float>> probs_data(num_output_candidates);
+  for (int batch_index = 0; batch_index < num_output_candidates;
+       ++batch_index) {
+    probs_data[batch_index].reserve(target_ids[batch_index].size());
+  }
+  while (true) {
+    // If all batches are done, we break the loop.
+    if (std::all_of(batch_done.begin(), batch_done.end(),
+                    [](bool b) { return b; })) {
+      break;
+    }
+
+    LITERT_ASSIGN_OR_RETURN(auto duplicate_decoded_ids,
+                            decoded_ids.value()->Duplicate());
+    ExecutorInputs inputs(ExecutorTextData(std::move(duplicate_decoded_ids)),
+                          std::nullopt, std::nullopt);
+    LITERT_ASSIGN_OR_RETURN(const TensorBuffer output_logits,
+                            executor.DecodeLogits(inputs));
+
+    // The target for which we want the probability is the current target_id.
+    for (int batch_index = 0; batch_index < num_output_candidates;
+         ++batch_index) {
+      if (target_ids[batch_index].size() == num_decode_steps) {
+        batch_done[batch_index] = true;
+      }
+      if (batch_done[batch_index]) {
+        // If the current batch is done but other batches are not, we set a
+        // dummy token 0 for the current batch. The score for the dummy token
+        // won't be calculated.
+        next_token_ids[batch_index] = 0;
+      } else {
+        next_token_ids[batch_index] = target_ids[batch_index][num_decode_steps];
+      }
+    }
+    next_token_ids_tensor.Write(absl::MakeConstSpan(next_token_ids));
+    LITERT_ASSIGN_OR_RETURN(auto logits_tensor_type,
+                            output_logits.TensorType());
+    // output_logits shape: [batch, sequence_length, vocab_size]
+    const int vocab_size = logits_tensor_type.Layout().Dimensions()[2];
+
+    LITERT_ASSIGN_OR_RETURN(const absl::Span<const float> output_logits_span,
+                            ReferTensorBufferAsSpan<float>(output_logits));
+
+    for (int batch_index = 0; batch_index < num_output_candidates;
+         ++batch_index) {
+      if (batch_done[batch_index]) {
+        continue;
+      }
+      const int processing_id = target_ids[batch_index][num_decode_steps];
+      if (processing_id < 0 || processing_id >= vocab_size) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Processing ID at batch ", batch_index, " is out of bounds. Got ",
+            processing_id, ", but vocab size is ", vocab_size));
+      }
+      absl::Span<const float> current_logits =
+          output_logits_span.subspan(batch_index * vocab_size, vocab_size);
+      probs_data[batch_index].push_back(
+          ComputeSoftmaxForId(current_logits, processing_id));
+    }
+
+    // The input for the next step is the current target_id.
+    decoded_ids.value()->Write(absl::MakeConstSpan(next_token_ids));
+    num_decode_steps++;
+  }
+
+  if (benchmark_info.has_value()) {
+    RETURN_IF_ERROR(benchmark_info->TimeDecodeTurnEnd(target_ids.size() *
+                                                      num_output_candidates));
+  }
+
+  // Finalizes scores for each output candidate. The score is the normalized
+  // log-probability of the target tokens. Also stores the target text to the
+  // final responses for reference and debugging.
+  // TODO: b/439735681 - Per-token scores can be more meaningful and versatile.
+  std::vector<float>& final_scores = final_responses.GetMutableScores();
+  LITERT_ASSIGN_OR_RETURN(
+      std::vector<absl::StatusOr<std::string>> decoded_result,
+      tokenizer.TokenIdsToTexts(num_output_candidates, target_ids));
+  std::vector<std::string>& final_texts =
+      final_responses.GetMutableResponseTexts();
+  for (int batch_index = 0; batch_index < num_output_candidates;
+       ++batch_index) {
+    if (probs_data[batch_index].size() != target_ids[batch_index].size()) {
+      return absl::InternalError(
+          "The size of probs_data does not match the size of target_ids.");
+    }
+    if (target_ids[batch_index].empty()) {
+      final_scores[batch_index] = -std::numeric_limits<float>::infinity();
+    } else {
+      float log_prob = 0.0f;
+      for (int i = 0; i < target_ids[batch_index].size(); ++i) {
+        log_prob += std::log(probs_data[batch_index][i]);
+      }
+      final_scores[batch_index] = log_prob / target_ids[batch_index].size();
+    }
+
+    if (!decoded_result[batch_index].ok()) {
+      return decoded_result[batch_index].status();
+    }
+    // The tokenizer may return a token with a special character "▁" that
+    // should be replaced with a space.
+    final_texts[batch_index] =
+        absl::StrReplaceAll(*decoded_result[batch_index], {{"▁", " "}});
+  }
+  return final_responses;
+}
+
 }  // namespace
 
 absl::StatusOr<int> Prefill(LlmExecutor& executor, Tokenizer& tokenizer,
@@ -442,6 +602,33 @@ absl::Status DecodeCustomSamplingStreaming(
                     num_output_candidates, benchmark_info, &sampler,
                     &decoded_ids, observer)
       .status();
+}
+
+absl::StatusOr<Responses> Score(LlmExecutor& executor, Tokenizer& tokenizer,
+                                const std::vector<InputData>& target_inputs,
+                                const int num_output_candidates,
+                                litert::TensorBuffer& decoded_ids,
+                                std::optional<BenchmarkInfo>& benchmark_info) {
+  if (target_inputs.size() != num_output_candidates) {
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Number of target inputs (%d) must match number of output candidates "
+        "(%d).",
+        target_inputs.size(), num_output_candidates));
+  }
+  std::vector<TokenIds> batched_target_ids;
+  batched_target_ids.reserve(num_output_candidates);
+  for (const InputData& input : target_inputs) {
+    std::optional<std::string> target_text = ToString(input);
+    if (!target_text.has_value()) {
+      return absl::InvalidArgumentError(
+          "Target input cannot be converted to text.");
+    }
+    ASSIGN_OR_RETURN(const TokenIds target_ids,
+                     tokenizer.TextToTokenIds(*target_text));
+    batched_target_ids.push_back(std::move(target_ids));
+  }
+  return ScoreLoop(executor, tokenizer, batched_target_ids,
+                   num_output_candidates, benchmark_info, &decoded_ids);
 }
 
 }  // namespace litert::lm

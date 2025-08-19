@@ -79,6 +79,18 @@ class Engine {
         const std::vector<InputData>& contents,
         InferenceObservable* observer) = 0;
 
+    // Scores each entry in `target_texts` as a potential response of the input
+    // `contents`.
+    //
+    // This method calculates the likelihood of each target text given the input
+    // contents. The resulting scores (typically log probabilities) are stored
+    // in the returned `Responses` object.
+    virtual absl::StatusOr<Responses> ScoreCandidateResponses(
+        const std::vector<InputData>& contents,
+        const std::vector<InputData>& target_texts) {
+      return absl::UnimplementedError("Not implemented.");
+    }
+
     // Adds the input prompt/query to the model for starting the prefilling
     // process. Note that the user can break down their prompt/query into
     // multiple chunks and call this function multiple times.
@@ -100,11 +112,25 @@ class Engine {
     // process is done.
     virtual absl::StatusOr<Responses> RunDecode() = 0;
 
-    // Startes the decoding process for the model to predict the response based
+    // Starts the decoding process for the model to predict the response based
     // on the input prompt/query added after using RunPrefill* functions.
     // This is a not blocking call and the function will return right away. The
     // result will be streamed through the observer.
     virtual absl::Status RunDecodeAsync(InferenceObservable* observer) {
+      return absl::UnimplementedError("Not implemented.");
+    }
+
+    // Scores the provided target texts against the prefetched context.
+    //
+    // This is a low-level API that performs forced decoding to calculate the
+    // likelihood of each entry in `target_texts`. It should be called after
+    // `RunPrefill` has been used to process the initial prompt. The resulting
+    // scores are stored in the returned `Responses` object.
+    //
+    // This is a blocking call and the function will return when the scoring
+    // process is done.
+    virtual absl::StatusOr<Responses> ScoreTargets(
+        const std::vector<InputData>& target_texts) {
       return absl::UnimplementedError("Not implemented.");
     }
 

@@ -1,6 +1,5 @@
 #include "runtime/executor/fake_llm_executor.h"
 
-#include <limits>
 #include <utility>
 #include <vector>
 
@@ -21,18 +20,24 @@
 namespace litert::lm {
 namespace {
 
-// Converts the given ids to logits TensorBuffer in the shape of [batch_size,
-// vocab_size].
-void DecodeIdsToLogits(const std::vector<int>& ids, int vocab_size,
+// Converts the given primary and secondary ids to logits TensorBuffer.
+// The logits are in the shape of [batch_size, sequence_length, vocab_size].
+void DecodeIdsToLogits(const std::vector<int>& primary_ids,
+                       const std::vector<int>& secondary_ids, int vocab_size,
                        ::litert::TensorBuffer& output_logits) {
   auto logits_span = ReferTensorBufferAsSpan<float>(output_logits);
-  for (int i = 0; i < ids.size(); ++i) {
+  for (int i = 0; i < primary_ids.size(); ++i) {
     for (int j = 0; j < vocab_size; ++j) {
       int index = i * vocab_size + j;
-      if (ids[i] == j) {
-        (*logits_span)[index] = std::numeric_limits<float>::max();
+      if (primary_ids[i] == j) {
+        // High logit for the primary token.
+        (*logits_span)[index] = 100.0f;
+      } else if (i < secondary_ids.size() && secondary_ids[i] == j) {
+        // Medium logit for the secondary token.
+        (*logits_span)[index] = 50.0f;
       } else {
-        (*logits_span)[index] = std::numeric_limits<float>::lowest();
+        // Low logit for all other tokens.
+        (*logits_span)[index] = 1.0f;
       }
     }
   }
@@ -60,10 +65,12 @@ absl::Status CheckEquivalent(absl::Span<int> expected, absl::Span<int> actual) {
 
 FakeLlmExecutor::FakeLlmExecutor(
     int vocab_size, const std::vector<std::vector<int>>& prefill_tokens_set,
-    const std::vector<std::vector<int>>& decode_tokens_set, int batch_size)
+    const std::vector<std::vector<int>>& decode_tokens_set, int batch_size,
+    const std::vector<std::vector<int>>& secondary_decode_tokens_set)
     : vocab_size_(vocab_size),
       prefill_tokens_set_(prefill_tokens_set),
       decode_tokens_set_(decode_tokens_set),
+      secondary_decode_tokens_set_(secondary_decode_tokens_set),
       batch_size_(batch_size),
       prefill_times_(0),
       decode_times_(0),
@@ -127,15 +134,19 @@ absl::Status FakeLlmExecutor::Decode(const ExecutorInputs& inputs,
         "expected decode tokens.",
         decode_times_));
   }
-  if (decode_times_ > 0) {
+  if (decode_times_ > 0 && !scoring_mode_) {
     // Check that the input tokens match the decode tokens from the last call.
     auto input_span =
         ReferTensorBufferAsSpan<int>(*(*inputs.GetTextTokenIdsPtr()));
     RETURN_IF_ERROR(CheckEquivalent(
         absl::MakeSpan(decode_tokens_set_[decode_times_ - 1]), *input_span));
   }
-  DecodeIdsToLogits(decode_tokens_set_[decode_times_], vocab_size_,
-                    output_logits);
+  const std::vector<int>& secondary_ids =
+      (decode_times_ < secondary_decode_tokens_set_.size())
+          ? secondary_decode_tokens_set_[decode_times_]
+          : std::vector<int>{};
+  DecodeIdsToLogits(decode_tokens_set_[decode_times_], secondary_ids,
+                    vocab_size_, output_logits);
   decode_times_++;
   current_step_++;
   return absl::OkStatus();
@@ -149,7 +160,7 @@ absl::StatusOr<::litert::TensorBuffer> FakeLlmExecutor::DecodeLogits(
         "expected decode tokens.",
         decode_times_));
   }
-  if (decode_times_ > 0) {
+  if (decode_times_ > 0 && !scoring_mode_) {
     // Check that the input tokens match the decode tokens from the last call.
     auto input_span =
         ReferTensorBufferAsSpan<int>(*(*inputs.GetTextTokenIdsPtr()));
@@ -159,8 +170,12 @@ absl::StatusOr<::litert::TensorBuffer> FakeLlmExecutor::DecodeLogits(
   LITERT_ASSIGN_OR_RETURN(
       auto output_logits,
       CreateTensorBuffer<float>({batch_size_, 1, vocab_size_}));
-  DecodeIdsToLogits(decode_tokens_set_[decode_times_], vocab_size_,
-                    output_logits);
+  const std::vector<int>& secondary_ids =
+      (decode_times_ < secondary_decode_tokens_set_.size())
+          ? secondary_decode_tokens_set_[decode_times_]
+          : std::vector<int>{};
+  DecodeIdsToLogits(decode_tokens_set_[decode_times_], secondary_ids,
+                    vocab_size_, output_logits);
   decode_times_++;
   current_step_++;
   return std::move(output_logits);
