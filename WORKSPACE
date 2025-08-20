@@ -363,3 +363,5 @@ neuro_pilot()
 load("@litert//third_party/google_tensor:workspace.bzl", "google_tensor")
 
 google_tensor()
+
+# Dummy
