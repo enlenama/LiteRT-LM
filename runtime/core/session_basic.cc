@@ -25,9 +25,12 @@
 #include "absl/memory/memory.h"  // from @com_google_absl
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
+#include "absl/strings/match.h"  // from @com_google_absl
 #include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/time/time.h"  // from @com_google_absl
+#include "litert/cc/litert_layout.h"  // from @litert
+#include "runtime/components/preprocessor/image_preprocessor.h"
 #include "runtime/components/sampler.h"
 #include "runtime/components/sampler_factory.h"
 #include "runtime/components/stop_token_detector.h"
@@ -39,6 +42,7 @@
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/executor/llm_executor.h"
 #include "runtime/executor/llm_executor_io_types.h"
+#include "runtime/executor/vision_executor.h"
 #include "runtime/framework/threadpool.h"
 #include "runtime/proto/sampler_params.pb.h"
 #include "runtime/util/convert_tensor_buffer.h"
@@ -50,6 +54,7 @@ namespace litert::lm {
 // static
 absl::StatusOr<std::unique_ptr<SessionBasic>> SessionBasic::Create(
     LlmExecutor* executor, Tokenizer* tokenizer,
+    ImagePreprocessor* image_preprocessor, VisionExecutor* vision_executor,
     const SessionConfig& session_config,
     std::optional<BenchmarkInfo> benchmark_info,
     ThreadPool* worker_thread_pool) {
@@ -77,9 +82,10 @@ absl::StatusOr<std::unique_ptr<SessionBasic>> SessionBasic::Create(
     RETURN_IF_ERROR(
         stop_token_detector.AddStopTokenSequence(stop_token_sequence));
   }
-  return absl::WrapUnique(new SessionBasic(
-      executor, tokenizer, std::move(sampler), session_config, benchmark_info,
-      worker_thread_pool, stop_token_detector));
+  return absl::WrapUnique(
+      new SessionBasic(executor, tokenizer, image_preprocessor, vision_executor,
+                       std::move(sampler), session_config, benchmark_info,
+                       worker_thread_pool, stop_token_detector));
 }
 
 SessionBasic::~SessionBasic() {
@@ -91,10 +97,25 @@ SessionBasic::~SessionBasic() {
 
 absl::StatusOr<std::string> SessionBasic::ApplyPromptTemplates(
     absl::string_view input) {
-  return absl::StrCat(session_config_.GetPromptTemplates().user().prefix(),
-                      input,
-                      session_config_.GetPromptTemplates().user().suffix(),
-                      session_config_.GetPromptTemplates().model().prefix());
+  std::string prefix;
+  ASSIGN_OR_RETURN(auto bos_string, tokenizer_.TokenIdsToText(
+                                        {session_config_.GetStartTokenId()}));
+  ABSL_LOG(INFO) << "bos_string: " << bos_string;
+  if (absl::StrContains(input, bos_string)) {
+    return absl::InvalidArgumentError(
+        "Input contains bos control token. Control token should not be "
+        "included in the input.");
+  }
+  if (is_first_turn_) {
+    prefix = bos_string;
+    is_first_turn_ = false;
+  } else {
+    prefix = "\n";
+  }
+  return absl::StrCat(
+      prefix, session_config_.GetPromptTemplates().user().prefix(), input,
+      session_config_.GetPromptTemplates().user().suffix(),
+      session_config_.GetPromptTemplates().model().prefix());
 }
 
 // TODO - b/436674053: Modulize the preprocessing logic into a separate
@@ -114,6 +135,14 @@ absl::StatusOr<std::vector<InputData>> SessionBasic::PreprocessContents(
       } else {
         ASSIGN_OR_RETURN(auto raw_text, input_text->GetRawTextString());
         ASSIGN_OR_RETURN(auto formatted_text, ApplyPromptTemplates(raw_text));
+        ASSIGN_OR_RETURN(
+            auto bos_string,
+            tokenizer_.TokenIdsToText({session_config_.GetStartTokenId()}));
+        bool bos_token_found = false;
+        if (absl::StartsWith(formatted_text, bos_string)) {
+          formatted_text = formatted_text.substr(bos_string.size());
+          bos_token_found = true;
+        }
         int benchmark_prefill_token_count = 0;
         if (benchmark_info_.has_value()) {
           benchmark_prefill_token_count =
@@ -126,8 +155,7 @@ absl::StatusOr<std::vector<InputData>> SessionBasic::PreprocessContents(
           // If benchmark is enabled, we will use the benchmark prefill token
           // count to set the prefill token count.
           ids.resize(benchmark_prefill_token_count);
-        } else {
-          // TODO(hoko): Ask @ztenghui what is the original design intent here.
+        } else if (bos_token_found) {
           ids.insert(ids.begin(), session_config_.GetStartTokenId());
         }
         ASSIGN_OR_RETURN(auto ids_buffer,
@@ -135,7 +163,23 @@ absl::StatusOr<std::vector<InputData>> SessionBasic::PreprocessContents(
         preprocessed_contents.emplace_back(InputText(std::move(ids_buffer)));
       }
     } else if (const auto* input_image = std::get_if<InputImage>(&input)) {
-      return absl::UnimplementedError("Image prefill is not implemented yet.");
+      RET_CHECK(image_preprocessor_) << "Image preprocessor is not available.";
+
+      ASSIGN_OR_RETURN(const auto& target_dims_vector,
+                       vision_executor_->GetExpectedInputDimension());
+
+      Dimensions target_dims(target_dims_vector.begin(),
+                             target_dims_vector.end());
+
+      ImagePreprocessParameter input_preprocess_parameters;
+      input_preprocess_parameters.SetTargetDimensions(target_dims);
+
+      ASSIGN_OR_RETURN(auto preprocessed_image,
+                       image_preprocessor_->Preprocess(
+                           *input_image, input_preprocess_parameters));
+
+      preprocessed_contents.emplace_back(
+          InputImage(std::move(preprocessed_image)));
     } else if (const auto* input_audio = std::get_if<InputAudio>(&input)) {
       return absl::UnimplementedError("Audio prefill is not implemented yet.");
     }
@@ -149,16 +193,31 @@ absl::Status SessionBasic::PrefillInternal(
   // TODO(b/397975034): Consider to utilize a prompt formatting logic in a
   // separate library/class.
   // Update the input with prompt formatting.
-  RET_CHECK(preprocessed_contents.size() == 1)
-      << "preprocessed_contents must have exactly one element.";
-  RET_CHECK(std::holds_alternative<InputText>(preprocessed_contents.at(0)))
-      << "preprocessed_contents must have an InputText.";
-  const InputText& input_text =
-      std::get<InputText>(preprocessed_contents.at(0));
-  ASSIGN_OR_RETURN(const auto* token_ids,
-                   input_text.GetPreprocessedTextTensor());
-  LITERT_ASSIGN_OR_RETURN_ABSL(auto token_ids_clone, token_ids->Duplicate());
-  ExecutorInputs inputs(ExecutorTextData(std::move(token_ids_clone)),
+  std::vector<int> combined_token_ids;
+  for (const auto& preprocessed_content : preprocessed_contents) {
+    if (const auto* input_text =
+            std::get_if<InputText>(&preprocessed_content)) {
+      ASSIGN_OR_RETURN(const auto* token_ids,
+                       input_text->GetPreprocessedTextTensor());
+      LITERT_ASSIGN_OR_RETURN_ABSL(auto ids_buffer_span,
+                                   ReferTensorBufferAsSpan<int>(*token_ids));
+      combined_token_ids.insert(combined_token_ids.end(),
+                                ids_buffer_span.begin(), ids_buffer_span.end());
+    } else {
+      return absl::InvalidArgumentError(
+          "PrefillInternal currently only supports concatenating InputText "
+          "elements.");
+    }
+  }
+
+  if (combined_token_ids.empty()) {
+    return absl::InvalidArgumentError(
+        "No token IDs found in preprocessed_contents.");
+  }
+
+  ASSIGN_OR_RETURN(auto token_ids_buffer,
+                   tokenizer_.TokenIdsToTensorBuffer(combined_token_ids));
+  ExecutorInputs inputs(ExecutorTextData(std::move(token_ids_buffer)),
                         std::nullopt, std::nullopt);
   // This should be added to the beginning of the next prefill call as will no?
   // Also, this is not thread safe. More discussion with @ztenghui is needed.
