@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/log/absl_log.h"  // from @com_google_absl
 #include "absl/memory/memory.h"  // from @com_google_absl
@@ -37,8 +38,12 @@
 
 namespace litert::lm {
 
+namespace {
 using ::litert::BufferRef;
 using ::litert::Model;
+
+constexpr absl::string_view kMetadataFileName = "METADATA";
+}  // namespace
 
 // static
 absl::StatusOr<std::unique_ptr<ModelResources>> ModelResourcesTask::Create(
@@ -90,7 +95,8 @@ absl::StatusOr<Tokenizer*> ModelResourcesTask::GetTokenizer() {
 absl::StatusOr<const proto::LlmMetadata*> ModelResourcesTask::GetLlmMetadata() {
   if (llm_metadata_ == nullptr) {
     ASSIGN_OR_RETURN(auto string_view,  // NOLINT
-                     model_asset_bundle_resources_->GetFile("METADATA"));
+                     model_asset_bundle_resources_->GetFile(kMetadataFileName));
+
     ASSIGN_OR_RETURN(auto llm_metadata,  // NOLINT
                      ExtractOrConvertLlmMetadata(string_view));
     llm_metadata_ =
