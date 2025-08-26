@@ -78,4 +78,9 @@ absl::StatusOr<int> SentencePieceTokenizer::EosId() const {
   return processor_->eos_id();
 };
 
+absl::StatusOr<sentencepiece::SentencePieceProcessor*>
+SentencePieceTokenizer::GetSentencePieceProcessor() const {
+  return processor_.get();
+}
+
 }  // namespace litert::lm

@@ -52,6 +52,7 @@ cc_library(
         "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/types:span",
         "//runtime/util:convert_tensor_buffer",
+        "@sentencepiece//:sentencepiece_processor",
     ] + select({
         "@litert//litert:litert_link_capi_so": [
             "@litert//litert/cc:litert_api_with_dynamic_runtime",
@@ -482,6 +483,7 @@ cc_library(
         ":model_resources",
         ":sentencepiece_tokenizer",
         ":tokenizer",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/memory",
@@ -493,6 +495,7 @@ cc_library(
         "//runtime/util:litert_status_util",
         "//runtime/util:metadata_util",
         "//runtime/util:model_asset_bundle_resources",
+        "@sentencepiece//:sentencepiece_processor",
     ] + select({
         "@litert//litert:litert_link_capi_so": [
             "@litert//litert/cc:litert_api_with_dynamic_runtime",
