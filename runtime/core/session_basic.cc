@@ -213,6 +213,26 @@ absl::StatusOr<Responses> SessionBasic::GenerateContent(
   return RunDecode();
 }
 
+absl::StatusOr<std::vector<float>> SessionBasic::ScorePerplexity(
+    const std::vector<InputData>& contents,
+    std::vector<absl::string_view> target_text) {
+  if (sampler_ == nullptr) {
+    return absl::InvalidArgumentError(
+        "ScorePerplexity is only supported for external sampling.");
+  }
+  RETURN_IF_ERROR(RunPrefill(contents));
+  std::vector<int> decoded_ids(session_config_.GetNumOutputCandidates(),
+                               last_prefill_token_id_);
+  // Remove the last token from the decoded ids.
+  auto decoded_ids_buffer = CopyToTensorBuffer<int>(
+      decoded_ids, {session_config_.GetNumOutputCandidates(), 1});
+  ASSIGN_OR_RETURN(
+      auto score,
+      ScoreCustomSampling(executor_, tokenizer_, stop_token_detector_,
+                          target_text, *sampler_, *decoded_ids_buffer));
+  return score;
+}
+
 absl::Status SessionBasic::GenerateContentStream(
     const std::vector<InputData>& contents, InferenceObservable* observer) {
   RETURN_IF_ERROR(RunPrefillAsync(contents, observer));

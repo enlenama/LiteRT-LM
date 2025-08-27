@@ -77,6 +77,7 @@ ABSL_FLAG(bool, multi_turns, false,
 ABSL_FLAG(int, num_cpu_threads, 0,
           "If greater than 0, the number of CPU threads to use for the LLM "
           "execution with CPU backend.");
+ABSL_FLAG(std::string, score_target_text, "", "Target text to score.");
 
 namespace {
 
@@ -185,6 +186,17 @@ void RunMultiTurnConversation(litert::lm::Engine* llm,
   } while (true);
 }
 
+void RunScoreText(litert::lm::Engine* llm, litert::lm::Engine::Session* session,
+                  std::string& input_prompt, std::string& target_text) {
+  std::vector<litert::lm::InputData> inputs;
+  inputs.emplace_back(InputText(input_prompt));
+  std::vector<absl::string_view> target_text_vector;
+  target_text_vector.push_back(target_text);
+  auto score = session->ScorePerplexity(inputs, target_text_vector);
+  ABSL_CHECK_OK(score);
+  ABSL_LOG(INFO) << "Score: " << (*score)[0];
+}
+
 absl::Status MainHelper(int argc, char** argv) {
   absl::ParseCommandLine(argc, argv);
   LiteRtSetMinLoggerSeverity(
@@ -274,6 +286,10 @@ absl::Status MainHelper(int argc, char** argv) {
     RunBenchmark(llm->get(), session->get());
   } else if (absl::GetFlag(FLAGS_multi_turns)) {
     RunMultiTurnConversation(llm->get(), session->get());
+  } else if (!absl::GetFlag(FLAGS_score_target_text).empty()) {
+    std::string input_prompt = absl::GetFlag(FLAGS_input_prompt);
+    std::string target_text = absl::GetFlag(FLAGS_score_target_text);
+    RunScoreText(llm->get(), session->get(), input_prompt, target_text);
   } else {
     std::string input_prompt = absl::GetFlag(FLAGS_input_prompt);
     RunSingleTurn(llm->get(), session->get(), input_prompt);

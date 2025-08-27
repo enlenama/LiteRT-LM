@@ -79,6 +79,13 @@ class Engine {
         const std::vector<InputData>& contents,
         InferenceObservable* observer) = 0;
 
+    // Scores the target text against the input prompt/query. This function
+    // will handle the prefill and decode processes internally but use the
+    // input text and place in the memory of the model.
+    virtual absl::StatusOr<std::vector<float>> ScorePerplexity(
+        const std::vector<InputData>& contents,
+        std::vector<absl::string_view> target_text) = 0;
+
     // Adds the input prompt/query to the model for starting the prefilling
     // process. Note that the user can break down their prompt/query into
     // multiple chunks and call this function multiple times.

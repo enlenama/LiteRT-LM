@@ -62,6 +62,10 @@ class SessionBasic : public Engine::Session {
       const std::vector<InputData>& contents,
       InferenceObservable* observer) override;
 
+  absl::StatusOr<std::vector<float>> ScorePerplexity(
+      const std::vector<InputData>& contents,
+      std::vector<absl::string_view> target_text) override;
+
   absl::Status RunPrefill(const std::vector<InputData>& contents) override;
   absl::Status RunPrefillAsync(const std::vector<InputData>& contents,
                                InferenceObservable* observer) override;
