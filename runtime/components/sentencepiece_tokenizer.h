@@ -53,6 +53,9 @@ class SentencePieceTokenizer : public Tokenizer {
   // Returns EOS id.
   absl::StatusOr<int> EosId() const override;
 
+  absl::StatusOr<sentencepiece::SentencePieceProcessor*>
+  GetSentencePieceProcessor() const override;
+
  private:
   // Constructor.
   explicit SentencePieceTokenizer(
