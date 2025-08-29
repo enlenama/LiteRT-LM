@@ -75,6 +75,9 @@ struct GpuConfig {
   // means only greedy decoding is supported for any sessions created with
   // this engine.
   uint32_t max_top_k = 1;
+
+  // Enable benchmark mode.
+  bool enable_benchmark_mode = false;
 };
 std::ostream& operator<<(std::ostream& os, const GpuConfig& config);
 

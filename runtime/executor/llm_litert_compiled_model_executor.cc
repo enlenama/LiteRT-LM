@@ -641,6 +641,10 @@ LlmLiteRtCompiledModelExecutor::Create(LlmExecutorSettings executor_settings,
         gpu_compilation_options.SetDelegatePrecision(
             LiteRtDelegatePrecision::kLiteRtDelegatePrecisionFp16);
       }
+      ASSIGN_OR_RETURN(auto gpu_config,
+                       executor_settings.GetBackendConfig<GpuConfig>());
+      gpu_compilation_options.EnableBenchmarkMode(
+          gpu_config.enable_benchmark_mode);
       gpu_compilation_options.SetPreferTextureWeights(true);
       if (weight_cache_path != ":nocache") {
         ASSIGN_OR_RETURN(auto model_path,

@@ -259,6 +259,15 @@ absl::Status MainHelper(int argc, char** argv) {
     benchmark_params.set_num_decode_tokens(
         absl::GetFlag(FLAGS_benchmark_decode_tokens));
     engine_settings.GetMutableBenchmarkParams() = benchmark_params;
+    if (backend == Backend::GPU) {
+      auto& executor_settings =
+          engine_settings.GetMutableMainExecutorSettings();
+      ASSIGN_OR_RETURN(
+          auto gpu_settings,
+          executor_settings.MutableBackendConfig<litert::lm::GpuConfig>());
+      gpu_settings.enable_benchmark_mode = true;
+      executor_settings.SetBackendConfig(gpu_settings);
+    }
   }
   ABSL_LOG(INFO) << "Creating engine";
   absl::StatusOr<std::unique_ptr<litert::lm::Engine>> llm =
