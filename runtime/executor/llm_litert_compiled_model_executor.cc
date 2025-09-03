@@ -658,9 +658,11 @@ LlmLiteRtCompiledModelExecutor::Create(LlmExecutorSettings executor_settings,
       // This option prevents KVCache handling from being affected by
       // NoExternalTensorsMode.
       gpu_compilation_options.AddExternalTensorPattern("kv_cache_");
-      gpu_compilation_options.AddExternalTensorPattern("logits");
 #if defined(LITERT_USE_WEBGPU_ACCELERATOR)
       gpu_compilation_options.SetGpuBackend(kLiteRtGpuBackendWebGpu);
+#else
+      // In OpenCL, logits should be external tensors to use GPU sampler.
+      gpu_compilation_options.AddExternalTensorPattern("logits");
 #endif  // defined(LITERT_USE_WEBGPU_ACCELERATOR)
       compilation_options->AddOpaqueOptions(std::move(gpu_compilation_options));
       compilation_options->SetHardwareAccelerators(kLiteRtHwAcceleratorGpu);
