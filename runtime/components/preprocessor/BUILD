@@ -84,6 +84,7 @@ cc_library(
         "@litert//litert/cc:litert_model",
         "@litert//litert/cc:litert_tensor_buffer",
         "//runtime/engine:io_types",
+        "//runtime/util:convert_tensor_buffer",
         "//runtime/util:litert_status_util",
     ] + select({
         "@platforms//os:ios": ["@miniaudio//:miniaudio_objc"],

@@ -38,6 +38,7 @@
 #include "runtime/components/preprocessor/audio_preprocessor.h"
 #include "runtime/components/preprocessor/mel_filterbank.h"
 #include "runtime/engine/io_types.h"
+#include "runtime/util/convert_tensor_buffer.h"
 #include "runtime/util/status_macros.h"  // IWYU pragma: keep
 #include "miniaudio.h"  // from @miniaudio
 #include "kiss_fftr.h"  // from @kissfft
@@ -255,16 +256,10 @@ absl::StatusOr<InputAudio> AudioPreprocessorMiniAudio::Preprocess(
   RETURN_IF_ERROR(ToLogMelSpectrogram(spectrograms, log_mel_spectrograms));
 
   const int num_frames = log_mel_spectrograms.size() / config_.GetNumMelBins();
-  RankedTensorType mel_tensor_type(
-      GetElementType<float>(),
-      Layout(Dimensions({1, num_frames, config_.GetNumMelBins()})));
   LITERT_ASSIGN_OR_RETURN(
       auto mel_spectrograms_tensor,
-      TensorBuffer::CreateManaged(nullptr, kLiteRtTensorBufferTypeHostMemory,
-                                  mel_tensor_type,
-                                  log_mel_spectrograms.size() * sizeof(float)));
-  LITERT_RETURN_IF_ERROR(mel_spectrograms_tensor.Write<float>(
-      absl::MakeSpan(log_mel_spectrograms)));
+      CopyToTensorBuffer(absl::MakeConstSpan(log_mel_spectrograms),
+                         {1, num_frames, config_.GetNumMelBins()}));
   return InputAudio(std::move(mel_spectrograms_tensor));
 }
 
