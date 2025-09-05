@@ -98,6 +98,22 @@ TEST_F(SessionBasicTest, RunPrefill) {
   EXPECT_OK((*session)->RunPrefill(inputs));
 }
 
+TEST_F(SessionBasicTest, RunPrefillWithEmptyContentOk) {
+  const std::vector<std::vector<int>> stop_token_ids = {{2294}};
+  SessionConfig session_config = SessionConfig::CreateDefault();
+  session_config.GetMutableSamplerParams() = sampler_params_;
+  session_config.GetMutableStopTokenIds() = stop_token_ids;
+  session_config.SetStartTokenId(2);
+  session_config.SetSamplerBackend(Backend::CPU);
+  auto session = SessionBasic::Create(
+      executor_.get(), tokenizer_.get(),
+      /*image_preprocessor=*/nullptr,
+      /*vision_executor=*/nullptr, session_config,
+      /*benchmark_info=*/std::nullopt, worker_thread_pool_.get());
+  std::vector<InputData> inputs;
+  EXPECT_OK((*session)->RunPrefill(inputs));
+}
+
 TEST_F(SessionBasicTest, RunDecode) {
   const std::vector<std::vector<int>> stop_token_ids = {{2294}};
   SessionConfig session_config = SessionConfig::CreateDefault();
@@ -116,9 +132,57 @@ TEST_F(SessionBasicTest, RunDecode) {
   auto responses = (*session)->RunDecode();
   EXPECT_OK(responses);
   EXPECT_EQ(responses->GetNumOutputCandidates(), 1);
+
   // The response is " How's it going?" since "!" is the stop token which is
   // not included in the response.
   EXPECT_EQ(*(responses->GetResponseTextAt(0)), " How's it going?");
+}
+
+TEST_F(SessionBasicTest, RunDecodeWithoutPrefillFail) {
+  const std::vector<std::vector<int>> stop_token_ids = {{2294}};
+  SessionConfig session_config = SessionConfig::CreateDefault();
+  session_config.GetMutableSamplerParams() = sampler_params_;
+  session_config.GetMutableStopTokenIds() = stop_token_ids;
+  session_config.SetStartTokenId(2);
+  session_config.SetSamplerBackend(Backend::CPU);
+  auto session =
+      SessionBasic::Create(executor_.get(), tokenizer_.get(),
+                           /*image_preprocessor=*/nullptr,
+                           /*vision_executor=*/nullptr, session_config,
+                           std::nullopt, worker_thread_pool_.get());
+  auto responses = (*session)->RunDecode();
+  EXPECT_THAT(responses, testing::status::StatusIs(
+                             absl::StatusCode::kInternal,
+                             "Cannot decode. No prefill since last decode."));
+}
+
+TEST_F(SessionBasicTest, RunDecodeWithoutPrefillBeforeLastDecodeFail) {
+  const std::vector<std::vector<int>> stop_token_ids = {{2294}};
+  SessionConfig session_config = SessionConfig::CreateDefault();
+  session_config.GetMutableSamplerParams() = sampler_params_;
+  session_config.GetMutableStopTokenIds() = stop_token_ids;
+  session_config.SetStartTokenId(2);
+  session_config.SetSamplerBackend(Backend::CPU);
+  auto session =
+      SessionBasic::Create(executor_.get(), tokenizer_.get(),
+                           /*image_preprocessor=*/nullptr,
+                           /*vision_executor=*/nullptr, session_config,
+                           std::nullopt, worker_thread_pool_.get());
+  std::vector<InputData> inputs;
+  inputs.emplace_back(InputText("Hello World!"));
+  EXPECT_OK((*session)->RunPrefill(inputs));
+  auto responses = (*session)->RunDecode();
+  EXPECT_OK(responses);
+  EXPECT_EQ(responses->GetNumOutputCandidates(), 1);
+
+  // The response is " How's it going?" since "!" is the stop token which is
+  // not included in the response.
+  EXPECT_EQ(*(responses->GetResponseTextAt(0)), " How's it going?");
+
+  auto responses2 = (*session)->RunDecode();
+  EXPECT_THAT(responses2, testing::status::StatusIs(
+                              absl::StatusCode::kInternal,
+                              "Cannot decode. No prefill since last decode."));
 }
 
 class TestObserver : public InferenceObservable {
@@ -146,6 +210,28 @@ TEST_F(SessionBasicTest, RunPrefillAsync) {
 
   std::vector<InputData> inputs;
   inputs.emplace_back(InputText("Hello World!"));
+  TestObserver observer;
+  EXPECT_OK((*session)->RunPrefillAsync(inputs, &observer));
+  // Wait for the async call to finish.
+  EXPECT_OK(worker_thread_pool_->WaitUntilDone(absl::Seconds(100)));
+
+  EXPECT_TRUE(observer.IsDone());
+}
+
+TEST_F(SessionBasicTest, RunPrefillAsyncWithEmptyContent) {
+  const std::vector<std::vector<int>> stop_token_ids = {{2294}};
+  SessionConfig session_config = SessionConfig::CreateDefault();
+  session_config.GetMutableSamplerParams() = sampler_params_;
+  session_config.SetStartTokenId(2);
+  session_config.GetMutableStopTokenIds() = stop_token_ids;
+  session_config.SetSamplerBackend(Backend::CPU);
+  auto session =
+      SessionBasic::Create(executor_.get(), tokenizer_.get(),
+                           /*image_preprocessor=*/nullptr,
+                           /*vision_executor=*/nullptr, session_config,
+                           std::nullopt, worker_thread_pool_.get());
+
+  std::vector<InputData> inputs;
   TestObserver observer;
   EXPECT_OK((*session)->RunPrefillAsync(inputs, &observer));
   // Wait for the async call to finish.
@@ -239,10 +325,15 @@ TEST_F(SessionBasicTest, GenerateContentStreamEmptyInput) {
                            std::nullopt, worker_thread_pool_.get());
 
   std::vector<InputData> inputs;
+  inputs.emplace_back(InputText("Hello World!"));
+  EXPECT_OK((*session)->RunPrefill(inputs));
+
   StreamingTestObserver observer;
-  EXPECT_THAT((*session)->GenerateContentStream(inputs, &observer),
-              testing::status::StatusIs(absl::StatusCode::kInvalidArgument,
-                                        "Input is empty."));
+  EXPECT_OK((*session)->GenerateContentStream({}, &observer));
+
+  EXPECT_OK(observer.WaitUntilDone());
+  EXPECT_THAT(observer.GetTexts(),
+              testing::ElementsAre(" How", "'", "s", " it", " go", "ing", "?"));
 }
 
 TEST_F(SessionBasicTest, GenerateContentStreamPrefillError) {

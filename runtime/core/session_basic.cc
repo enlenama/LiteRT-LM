@@ -283,6 +283,11 @@ absl::StatusOr<std::vector<InputData>> SessionBasic::PreprocessContents(
 absl::Status SessionBasic::PrefillInternal(
     const std::vector<InputData>& preprocessed_contents,
     bool wait_for_completion) {
+  if (preprocessed_contents.empty()) {
+    ABSL_LOG(INFO) << "Skip PrefillInternal since there is no content.";
+    return absl::OkStatus();
+  }
+
   ASSIGN_OR_RETURN(ExecutorInputs inputs,
                    ProcessAndCombineContents(preprocessed_contents));
 
@@ -291,13 +296,12 @@ absl::Status SessionBasic::PrefillInternal(
   ASSIGN_OR_RETURN(
       last_prefill_token_id_,
       Prefill(executor_, inputs, wait_for_completion, benchmark_info_));
+
+  MarkPrefilled();
   return absl::OkStatus();
 }
 
 absl::Status SessionBasic::RunPrefill(const std::vector<InputData>& contents) {
-  if (contents.empty()) {
-    return absl::InvalidArgumentError("Input is empty.");
-  }
   if (cancelled_.load()) {
     // Reset the cancelled flag before processing the next turn.
     cancelled_ = false;
@@ -317,9 +321,6 @@ absl::Status SessionBasic::RunPrefill(const std::vector<InputData>& contents) {
 
 absl::Status SessionBasic::RunPrefillAsync(
     const std::vector<InputData>& contents, InferenceObservable* observer) {
-  if (contents.empty()) {
-    return absl::InvalidArgumentError("Input is empty.");
-  }
   if (cancelled_.load()) {
     // Reset the cancelled flag before processing the next turn.
     cancelled_ = false;
@@ -338,10 +339,23 @@ absl::Status SessionBasic::RunPrefillAsync(
           observer->OnError(status);
         }
       }));
+
+  return absl::OkStatus();
+}
+
+void SessionBasic::MarkPrefilled() { prefilled_since_decode_ = true; }
+
+absl::Status SessionBasic::CheckAndUnmarkPrefilled() {
+  if (!prefilled_since_decode_) {
+    return absl::InternalError("Cannot decode. No prefill since last decode.");
+  }
+  prefilled_since_decode_ = false;
   return absl::OkStatus();
 }
 
 absl::StatusOr<Responses> SessionBasic::DecodeInternal() {
+  RETURN_IF_ERROR(CheckAndUnmarkPrefilled());
+
   if (sampler_ == nullptr) {
     ASSIGN_OR_RETURN(auto responses,
                      Decode(executor_, tokenizer_, stop_token_detector_,
@@ -364,6 +378,8 @@ absl::StatusOr<Responses> SessionBasic::DecodeInternal() {
 
 absl::Status SessionBasic::DecodeInternalStreaming(
     InferenceObservable* observer) {
+  RETURN_IF_ERROR(CheckAndUnmarkPrefilled());
+
   if (sampler_ == nullptr) {
     RETURN_IF_ERROR(DecodeStreaming(executor_, tokenizer_, stop_token_detector_,
                                     benchmark_info_, observer,

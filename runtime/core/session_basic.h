@@ -64,9 +64,8 @@ class SessionBasic : public Engine::Session {
 
   absl::StatusOr<Responses> GenerateContent(
       const std::vector<InputData>& contents) override;
-  absl::Status GenerateContentStream(
-      const std::vector<InputData>& contents,
-      InferenceObservable* observer) override;
+  absl::Status GenerateContentStream(const std::vector<InputData>& contents,
+                                     InferenceObservable* observer) override;
 
   absl::Status RunPrefill(const std::vector<InputData>& contents) override;
   absl::Status RunPrefillAsync(const std::vector<InputData>& contents,
@@ -74,8 +73,7 @@ class SessionBasic : public Engine::Session {
 
   absl::StatusOr<Responses> RunDecode() override;
 
-  absl::Status RunDecodeAsync(
-      InferenceObservable* observer) override;
+  absl::Status RunDecodeAsync(InferenceObservable* observer) override;
 
   absl::StatusOr<BenchmarkInfo> GetBenchmarkInfo() override;
 
@@ -135,8 +133,17 @@ class SessionBasic : public Engine::Session {
   // The internal functions to decode the input prompt. It is for convenience to
   // wrap it with lambda function for scheduling.
   absl::StatusOr<Responses> DecodeInternal();
-  absl::Status DecodeInternalStreaming(
-      InferenceObservable* observer = nullptr);
+  absl::Status DecodeInternalStreaming(InferenceObservable* observer = nullptr);
+
+  // Sets the prefilled state to true.
+  //
+  // Calls after each prefill.
+  void MarkPrefilled();
+
+  // Checks if there is new prefill data since last decode and resets the state.
+  //
+  // Calls before each decode.
+  absl::Status CheckAndUnmarkPrefilled();
 
   // The executor used for run the LLM for prefill/decode.
   LlmExecutor& executor_;
@@ -159,6 +166,9 @@ class SessionBasic : public Engine::Session {
   // The last token id of the prefill ids. It is used for the first decode
   // process to determine the token id to start from.
   int last_prefill_token_id_;
+
+  // Whether there is new prefill data since last decode.
+  bool prefilled_since_decode_ = false;
 
   // The benchmark info used for the session.
   std::optional<BenchmarkInfo> benchmark_info_;
