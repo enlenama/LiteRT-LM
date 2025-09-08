@@ -25,6 +25,7 @@
 #include "litert/cc/litert_macros.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
 #include "runtime/util/convert_tensor_buffer.h"
+#include "sentencepiece_processor.h"  // from @sentencepiece
 
 namespace litert::lm {
 
@@ -113,6 +114,18 @@ class Tokenizer {
       decoded_strings[i] = this->TokenIdsToText(token_ids[i]);
     }
     return decoded_strings;
+  }
+
+  // Returns the underlying SentencePieceProcessor if this Tokenizer is backed
+  // by a SentencePieceProcessor.
+  //
+  // This should be used only for backward compatibility with existing
+  // SentencePieceProcessor-based code. New code should use the Tokenizer
+  // interface directly.
+  virtual absl::StatusOr<sentencepiece::SentencePieceProcessor*>
+  GetSentencePieceProcessor() const {
+    return absl::UnavailableError(
+        "SentencePieceProcessor is not available in this Tokenizer.");
   }
 
   template <typename T>
