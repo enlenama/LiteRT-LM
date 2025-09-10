@@ -32,7 +32,7 @@ pytype_strict_library(
     ],
 )
 
-py_test(
+py_strict_test(
     name = "litertlm_core_test",
     srcs = ["litertlm_core_test.py"],
     deps = [
@@ -64,7 +64,7 @@ pytype_strict_binary(
     deps = [":litertlm_peek"],
 )
 
-py_test(
+py_strict_test(
     name = "litertlm_peek_test",
     srcs = ["litertlm_peek_test.py"],
     data = ["//schema:testdata"],
@@ -88,7 +88,7 @@ pytype_strict_library(
     ],
 )
 
-py_test(
+py_strict_test(
     name = "litertlm_builder_test",
     srcs = ["litertlm_builder_test.py"],
     deps = [
@@ -116,7 +116,7 @@ pytype_strict_binary(
     ],
 )
 
-py_test(
+py_strict_test(
     name = "litertlm_builder_cli_test",
     srcs = ["litertlm_builder_cli_test.py"],
     data = [
