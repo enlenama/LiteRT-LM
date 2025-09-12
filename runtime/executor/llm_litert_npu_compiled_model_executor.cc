@@ -54,6 +54,7 @@
 #include "runtime/executor/llm_executor_settings.h"
 #include "runtime/util/convert_tensor_buffer.h"
 #include "runtime/util/litert_status_util.h"
+#include "runtime/util/perfetto_profiling.h"
 #include "runtime/util/status_macros.h"  // NOLINT
 
 namespace litert::lm {
@@ -661,6 +662,7 @@ absl::Status LlmLiteRtNpuCompiledModelExecutor::Prefill(
 
 absl::Status LlmLiteRtNpuCompiledModelExecutor::Prefill(
     const ExecutorInputs& inputs, const ExecutorPrefillParams& params) {
+  LITERT_LM_PERFETTO_TRACE_EVENT("Prefill (LlmLiteRtNpuCompiledModelExecutor)");
   auto start = absl::Now();
   LITERT_ASSIGN_OR_RETURN(auto tensor_type,
                           (*inputs.GetTextTokenIdsPtr())->TensorType());
@@ -699,6 +701,7 @@ absl::Status LlmLiteRtNpuCompiledModelExecutor::Prefill(
 
 absl::Status LlmLiteRtNpuCompiledModelExecutor::Decode(
     TensorBuffer& output_tokens) {
+  LITERT_LM_PERFETTO_TRACE_EVENT("Decode (LlmLiteRtNpuCompiledModelExecutor)");
   auto start = absl::Now();
   ::litert::TensorBuffer& decoded_logits =
       llm_inference_context_

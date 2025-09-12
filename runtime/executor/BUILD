@@ -344,6 +344,7 @@ cc_library(
         "//runtime/executor:llm_executor_processed_tokens",
         "//runtime/util:convert_tensor_buffer",
         "//runtime/util:litert_status_util",
+        "//runtime/util:perfetto_profiling",
     ] + select({
         "@litert//litert:litert_link_capi_so": [
             "@litert//litert/cc:litert_api_with_dynamic_runtime",
