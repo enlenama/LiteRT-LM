@@ -14,6 +14,7 @@
 
 #include "runtime/executor/llm_litert_compiled_model_executor.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -48,6 +49,7 @@
 #include "runtime/executor/litert_compiled_model_executor_utils.h"
 #include "runtime/executor/llm_executor_io_types.h"
 #include "runtime/executor/llm_executor_settings.h"
+#include "runtime/executor/llm_litert_compiled_model_cache_utils.h"
 #include "runtime/util/convert_tensor_buffer.h"
 #include "runtime/util/file_util.h"
 #include "runtime/util/litert_status_util.h"
@@ -60,6 +62,13 @@ using ::absl::Span;
 using ::litert::Expected;
 using ::litert::GpuOptions;
 using ::litert::TensorBuffer;
+
+// TODO(b/446203106): Make these configurable to the executor settings to run
+// these experiments for initial tokens to retain and number of tokens to delete
+// in one go. The model's context size should be set using the inout flag.
+constexpr int kTokensToDrop = 1024;
+constexpr int kInitTokensToRetain = 256;
+constexpr int kContextSize = 4096;
 
 // Names of the signature runners, used to get the signature runners from the
 // interpreter.
@@ -287,6 +296,14 @@ absl::Status LlmLiteRtCompiledModelExecutor::PrefillInternal(
       // prefill.
       prefill_length = ids.size() - 1;
     }
+    // Delete the tokens from the KV cache if needed to fit the next prefill
+    // graph inside the KV cache. May need to delete
+    // multiple times if the number of tokens to delete is small compared to the
+    // prefill graph size.
+    while (DeleteTokensIfNeeded(
+        input_kv_cache_buffers_, kTokensToDrop, kInitTokensToRetain,
+        current_step_ + prefill_length, start_timestep_, kContextSize)) {
+    };
     for (int i = 0; i < prefill_length; input_idx++, current_step_++) {
       if (next_input_token_id_ != -1) {
         // Use next_input_token_id_ if it is valid.
@@ -301,7 +318,7 @@ absl::Status LlmLiteRtCompiledModelExecutor::PrefillInternal(
         // Only increase i if we used the token inside ids.
         i++;
       }
-      prefill_input_pos_ptr[input_idx] = current_step_;
+      prefill_input_pos_ptr[input_idx] = current_step_ - start_timestep_;
     }
     if (!signatures_.input_tokens.empty()) {
       auto& prefill_input_buffer =
@@ -338,7 +355,7 @@ absl::Status LlmLiteRtCompiledModelExecutor::PrefillInternal(
     if (has_input_attn_mask) {
       RETURN_IF_ERROR(FillAttentionMask(
           prefill_input_buffers_[signatures_.input_attn_mask.value()],
-          start_step,
+          start_step - start_timestep_,
           /*steps=*/current_step_ - start_step));
     }
   }
@@ -482,9 +499,9 @@ absl::Status LlmLiteRtCompiledModelExecutor::Decode(
           IsCalculationPrecisionF16()));
       RETURN_IF_ERROR(FillAttentionMask(
           decode_input_buffers_[signatures_.input_attn_mask.value()],
-          current_step_, /*steps=*/1));
+          current_step_ - start_timestep_, /*steps=*/1));
     }
-    decode_input_pos_ptr[0] = current_step_;
+    decode_input_pos_ptr[0] = current_step_ - start_timestep_;
   }
 
   absl::flat_hash_map<absl::string_view, ::litert::TensorBuffer>
@@ -519,6 +536,10 @@ absl::Status LlmLiteRtCompiledModelExecutor::Decode(
   RET_CHECK(res) << "Failed to run compiled model: " << res.Error().Message();
   std::swap(input_kv_cache_buffers_, output_kv_cache_buffers_);
 
+  // Delete tokens from the KV cache if needed.
+  DeleteTokensIfNeeded(input_kv_cache_buffers_, kTokensToDrop,
+                       kInitTokensToRetain, current_step_, start_timestep_,
+                       kContextSize);
   ++current_step_;
   return absl::OkStatus();
 }

@@ -201,6 +201,9 @@ class LlmLiteRtCompiledModelExecutor : public LlmExecutor {
 
   // Internal timestep.
   int current_step_ = 0;
+  // Internal timestep offset for calculating the model internal step for
+  // storing new KV cache tokens.
+  int start_timestep_ = 0;
 
   // TODO: b/404625243 - To be implemented.
   // The processed tokens.
