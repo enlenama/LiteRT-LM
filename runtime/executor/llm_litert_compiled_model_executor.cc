@@ -51,6 +51,7 @@
 #include "runtime/util/convert_tensor_buffer.h"
 #include "runtime/util/file_util.h"
 #include "runtime/util/litert_status_util.h"
+#include "runtime/util/perfetto_profiling.h"
 #include "runtime/util/status_macros.h"  // IWYU pragma: keep
 
 namespace litert::lm {
@@ -180,6 +181,8 @@ void LogTensor(TensorBuffer& tensor, size_t num_values_to_log,
 
 absl::Status LlmLiteRtCompiledModelExecutor::Prefill(
     const ExecutorInputs& inputs, const ExecutorPrefillParams& params) {
+  LITERT_LM_PERFETTO_TRACE_EVENT("Prefill (LlmLiteRtCompiledModelExecutor)");
+
   LITERT_ASSIGN_OR_RETURN_ABSL(auto tensor_type,
                                (*inputs.GetTextTokenIdsPtr())->TensorType());
   // Only accept batch size 1 for now.
@@ -253,6 +256,11 @@ absl::Status LlmLiteRtCompiledModelExecutor::Prefill(
 
 absl::Status LlmLiteRtCompiledModelExecutor::PrefillInternal(
     absl::string_view prefill_signature, Span<const int> ids) {
+  // Log the number of tokens sent to prefill. Note that this is not necessarily
+  // the same as the number of tokens sent to the model.
+  LITERT_LM_PERFETTO_TRACE_EVENT_INSTANT(perfetto::DynamicString{
+      absl::StrCat("Prefill token count: ", ids.size())});
+
   {
     // Fill the input buffers with scoped locks.
     auto& prefill_input_pos =
@@ -378,6 +386,9 @@ absl::Status LlmLiteRtCompiledModelExecutor::PrefillInternal(
 
 absl::Status LlmLiteRtCompiledModelExecutor::Decode(
     ::litert::TensorBuffer& output_tokens) {
+  LITERT_LM_PERFETTO_TRACE_EVENT(
+      "Decode w/ sampling (LlmLiteRtCompiledModelExecutor)")
+
   ASSIGN_OR_RETURN(decoded_logits_, DecodeLogits(ExecutorInputs()));
   LITERT_ASSIGN_OR_RETURN_ABSL(auto size, decoded_logits_.PackedSize());
   if (decoded_logits_vector_.empty()) {
@@ -411,6 +422,8 @@ absl::Status LlmLiteRtCompiledModelExecutor::Decode(
 
 absl::Status LlmLiteRtCompiledModelExecutor::Decode(
     const ExecutorInputs& inputs, ::litert::TensorBuffer& output_logits) {
+  LITERT_LM_PERFETTO_TRACE_EVENT("Decode (LlmLiteRtCompiledModelExecutor)")
+
   int id = next_input_token_id_;
 
   if (inputs.GetTextDataPtr().ok()) {

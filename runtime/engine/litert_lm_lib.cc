@@ -45,6 +45,7 @@
 #include "runtime/engine/io_types.h"
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/executor/llm_executor_settings.h"
+#include "runtime/util/perfetto_profiling.h"
 #include "runtime/util/status_macros.h"  // IWYU pragma: keep
 #include "re2/re2.h"  // from @com_googlesource_code_re2
 #include "stb_image.h"  // from @stb
@@ -173,6 +174,7 @@ absl::Status RunLiteRtLm(const LiteRtLmSettings& settings) {
   if (model_path.empty()) {
     return absl::InvalidArgumentError("Model path is empty.");
   }
+  litert::lm::InitializePerfetto();
   std::unique_ptr<tflite::profiling::memory::MemoryUsageMonitor> mem_monitor;
   if (settings.report_peak_memory_footprint) {
     mem_monitor =

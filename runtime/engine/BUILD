@@ -113,6 +113,7 @@ cc_library(
         "//runtime/executor:executor_settings_base",
         "//runtime/executor:llm_executor_settings",
         "//runtime/util:litert_status_util",
+        "//runtime/util:perfetto_profiling",
         "@com_googlesource_code_re2//:re2",
         "@stb//:stb_image",
         "@litert//tflite/profiling:memory_usage_monitor",

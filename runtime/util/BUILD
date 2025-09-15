@@ -429,3 +429,38 @@ cc_test(
         "//runtime/proto:llm_metadata_cc_proto",
     ],
 )
+
+# This is used to enable the perfetto profiler/tracer where it is not on by default.
+# To enable, pass --define LITERT_LM_PERFETTO_PROFILING=1 to your build command.
+config_setting(
+    name = "litert_lm_perfetto_enabled",
+    values = {
+        "define": "LITERT_LM_PERFETTO_PROFILING=1",
+    },
+    visibility = ["//visibility:private"],
+)
+
+alias(
+    name = "perfetto_profiling",
+    actual = select({
+        ":litert_lm_perfetto_enabled": ":perfetto_profiling_real",
+        "//conditions:default": ":perfetto_profiling_stub",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "perfetto_profiling_real",
+    srcs = ["perfetto_profiling.cc"],
+    hdrs = ["perfetto_profiling.h"],
+    defines = ["LITERT_LM_PERFETTO_ENABLED"],
+    visibility = ["//visibility:private"],
+    deps = ["//third_party/perfetto:libperfetto_client_experimental"],
+)
+
+cc_library(
+    name = "perfetto_profiling_stub",
+    srcs = ["perfetto_profiling.cc"],
+    hdrs = ["perfetto_profiling.h"],
+    visibility = ["//visibility:private"],
+)
