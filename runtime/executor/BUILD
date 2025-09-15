@@ -294,7 +294,9 @@ cc_test(
         "//runtime/util:model_asset_bundle_resources",
         "//runtime/util:scoped_file",
         "//runtime/util:test_utils",
-    ],
+    ] + select({
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
