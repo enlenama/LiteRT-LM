@@ -424,24 +424,35 @@ TEST(SessionConfigTest, MaybeUpdateAndValidatePickGpuAsSamplerBackend) {
   EXPECT_EQ(session_config.GetSamplerBackend(), Backend::GPU);
 }
 
-TEST(SessionConfigTest, MaybeUpdateAndValidateMaxNumTokens) {
+TEST(SessionConfigTest, MaybeUpdateAndValidateModelContextSize) {
+  // If the model context size is not set, we use the default value (0).
   auto model_assets = ModelAssets::Create("test_model_path_1");
   ASSERT_OK(model_assets);
   auto settings = EngineSettings::CreateDefault(*model_assets);
   auto session_config = SessionConfig::CreateDefault();
   EXPECT_OK(settings);
-  EXPECT_EQ(settings->GetMainExecutorSettings().GetMaxNumTokens(), 0);
+  EXPECT_EQ(settings->GetMainExecutorSettings().GetModelContextSize(), 0);
 
   FakeTokenizer tokenizer;
   proto::LlmMetadata llm_metadata = CreateLlmMetadata();
 
-  llm_metadata.set_max_num_tokens(1280);
+  llm_metadata.set_model_context_size(1280);
   EXPECT_OK(settings->MaybeUpdateAndValidate(tokenizer, &llm_metadata));
-  EXPECT_EQ(settings->GetMainExecutorSettings().GetMaxNumTokens(), 1280);
+  EXPECT_EQ(settings->GetMainExecutorSettings().GetModelContextSize(), 1280);
 
-  llm_metadata.set_max_num_tokens(4096);
+  llm_metadata.set_model_context_size(4096);
   EXPECT_OK(settings->MaybeUpdateAndValidate(tokenizer, &llm_metadata));
-  EXPECT_EQ(settings->GetMainExecutorSettings().GetMaxNumTokens(), 1280);
+  EXPECT_EQ(settings->GetMainExecutorSettings().GetModelContextSize(), 1280);
+}
+
+TEST(SessionConfigTest, SetAndGetMaxNumTokens) {
+  auto model_assets = ModelAssets::Create("test_model_path_1");
+  ASSERT_OK(model_assets);
+  auto settings = EngineSettings::CreateDefault(*model_assets);
+  EXPECT_OK(settings);
+  EXPECT_EQ(settings->GetMainExecutorSettings().GetMaxNumTokens(), 0);
+  settings->GetMutableMainExecutorSettings().SetMaxNumTokens(1024);
+  EXPECT_EQ(settings->GetMainExecutorSettings().GetMaxNumTokens(), 1024);
 }
 
 TEST(SessionConfigTest, PrintOperator) {

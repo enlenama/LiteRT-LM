@@ -82,6 +82,10 @@ ABSL_FLAG(std::optional<std::vector<std::string>>, image_files, std::nullopt,
           "The path to the image files that to be used for vision modality.");
 ABSL_FLAG(std::optional<std::vector<std::string>>, audio_files, std::nullopt,
           "The path to the audio files that to be used for audio modality.");
+ABSL_FLAG(int, max_num_tokens, 0,
+          "The maximum number of tokens to use for the LLM execution. If 0, "
+          "the default value is set to the model's context size "
+          "from the input metadata.");
 
 namespace {
 
@@ -129,7 +133,8 @@ absl::Status MainHelper(int argc, char** argv) {
            "[--multi_turns=<true|false>] "
            "[--num_cpu_threads=<num_cpu_threads>] "
            "[--clear_kv_cache_before_prefill=<true|false>] "
-           "[--num_logits_to_print_after_decode=<num_logits_to_print>]";
+           "[--num_logits_to_print_after_decode=<num_logits_to_print>] "
+           "[--max_num_tokens=<max_num_tokens>]";
     return absl::InvalidArgumentError("No arguments provided.");
   }
 
@@ -157,6 +162,7 @@ absl::Status MainHelper(int argc, char** argv) {
       absl::GetFlag(FLAGS_clear_kv_cache_before_prefill);
   settings.num_logits_to_print_after_decode =
       absl::GetFlag(FLAGS_num_logits_to_print_after_decode);
+  settings.max_num_tokens = absl::GetFlag(FLAGS_max_num_tokens);
   return litert::lm::RunLiteRtLm(settings);
 }
 

@@ -245,6 +245,12 @@ absl::Status RunLiteRtLm(const LiteRtLmSettings& settings) {
     }
   }
 
+  if (settings.max_num_tokens > 0) {
+    auto& executor_settings =
+        engine_settings.GetMutableMainExecutorSettings();
+    executor_settings.SetMaxNumTokens(settings.max_num_tokens);
+  }
+
   AdvancedSettings advanced_settings{
       .clear_kv_cache_before_prefill = settings.clear_kv_cache_before_prefill,
       .num_logits_to_print_after_decode =

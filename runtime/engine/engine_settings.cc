@@ -108,12 +108,19 @@ absl::Status EngineSettings::MaybeUpdateAndValidate(
   }
   // Load the max num tokens from the model file.
   // If not set, we set the default value to 4096.
-  if (main_executor_settings_.GetMaxNumTokens() == 0) {
-    int max_num_tokens = 4096;
-    if (metadata.max_num_tokens() > 0) {
-      max_num_tokens = metadata.max_num_tokens();
+  if (main_executor_settings_.GetModelContextSize() == 0) {
+    int model_context_size = 4096;
+    if (metadata.model_context_size() > 0) {
+      model_context_size = metadata.model_context_size();
     }
-    main_executor_settings_.SetMaxNumTokens(max_num_tokens);
+    main_executor_settings_.SetModelContextSize(model_context_size);
+  }
+
+  // See if the max max number of tokens for the model execution has been set.
+  // If not, we set the default value to model context size.
+  if (main_executor_settings_.GetMaxNumTokens() == 0) {
+    main_executor_settings_.SetMaxNumTokens(
+        main_executor_settings_.GetModelContextSize());
   }
 
   // Set the default values for the sampler params.

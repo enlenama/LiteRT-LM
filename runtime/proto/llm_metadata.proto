@@ -80,7 +80,7 @@ message LlmMetadata {
   optional SamplerParameters sampler_params = 4;
 
   // Maximum number of tokens that can be processed by the LLM.
-  int32 max_num_tokens = 5;
+  int32 model_context_size = 5;
 }
 
 message TokenUnion {

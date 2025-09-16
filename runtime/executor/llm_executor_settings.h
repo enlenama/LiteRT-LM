@@ -125,6 +125,11 @@ class LlmExecutorSettings : public ExecutorSettingsBase {
     max_num_tokens_ = max_num_tokens;
   }
 
+  uint64_t GetModelContextSize() const { return model_context_size_; }
+  void SetModelContextSize(uint64_t model_context_size) {
+    model_context_size_ = model_context_size;
+  }
+
   uint32_t GetMaxNumImages() const { return max_num_images_; }
   void SetMaxNumImages(uint32_t max_num_images) {
     max_num_images_ = max_num_images;
@@ -167,8 +172,10 @@ class LlmExecutorSettings : public ExecutorSettingsBase {
   explicit LlmExecutorSettings(ModelAssets model_assets)
       : ExecutorSettingsBase(std::move(model_assets)) {}
 
-  // Maximum number of the sum of input and output tokens. It is equivalent to
-  // the size of the kv-cache.
+  // Size of the kv-cache.
+  uint64_t model_context_size_;
+
+  // Maximum number of tokens that can be processed by the LLM.
   uint32_t max_num_tokens_;
 
   // Maximum number of images the model can handle.

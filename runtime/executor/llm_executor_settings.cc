@@ -106,10 +106,16 @@ absl::StatusOr<LlmExecutorSettings> LlmExecutorSettings::CreateDefault(
   }
   settings.SetBackend(backend);
   // Explicitly set the field value to avoid undefined behavior. Setting to 0
-  // means that the maximum number of tokens is not set can could be inferred
+  // means that the maximum number of tokens is not set and needs to be set
+  // explicitly by the user. If the user does not set it, it will be set to the
+  // model's context size from the input metadata. If the model's context size
+  // is not set, an error will be thrown during initialization.
+  settings.SetMaxNumTokens(0);
+  // Explicitly set the field value to avoid undefined behavior. Setting to 0
+  // means that the model context size is not set can could be inferred
   // from the model assets (but note that for the model or backend which does
   // not support this, an error will be thrown during initialization).
-  settings.SetMaxNumTokens(0);
+  settings.SetModelContextSize(0);
   // Disable image input by default.
   settings.SetMaxNumImages(0);
   return settings;
