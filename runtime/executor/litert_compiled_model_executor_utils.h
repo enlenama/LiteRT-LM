@@ -50,7 +50,11 @@ struct ModelSignatures {
   // Input token signature name. For both prefill and decode.
   std::string input_tokens;
   // Input position signature name. For both prefill and decode.
+  // Used to set the position of the tokens in KV cache.
   std::string input_positions;
+  // Input absolute position signature name. For both prefill and decode.
+  // Used to set the absolute position of the tokens for positional embeddings.
+  std::optional<std::string> absolute_input_positions;
   // Input attention mask signature name. For both prefill and decode.
   // Not all models require this input.
   std::optional<std::string> input_attn_mask;
@@ -83,7 +87,8 @@ absl::StatusOr<ModelSignatures> GetModelSignaturesFromInputOutputNames(
 // for Gemma2 JAX and "tokens" for Gemma2 PyTorch.
 absl::StatusOr<SortedPrefillSignatureMap> GetPrefillRunnerSetFromModel(
     const ::litert::Model& model, const std::string& signature_name_base,
-    const std::string& input_positions_name);
+    const std::string& input_positions_name,
+    std::optional<std::string> absolute_input_positions_name);
 
 // Get a list of prefill work groups, each of which contains the signature
 // runner and prefill length for a single prefill call.

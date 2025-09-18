@@ -17,6 +17,7 @@
 #include <filesystem>  // NOLINT: Required for path manipulation.
 #include <limits>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -90,6 +91,20 @@ TEST(LlmLiteRTCompiledModelExecutorUtilsTest,
                                             input_names, output_names));
   EXPECT_EQ(signatures.input_tokens, "token_ids");
   EXPECT_EQ(signatures.input_positions, "positions");
+  EXPECT_EQ(signatures.input_attn_mask, "attn_mask");
+  EXPECT_EQ(signatures.output_logits, "logits");
+}
+
+TEST(LlmLiteRTCompiledModelExecutorUtilsTest,
+     GetModelSignaturesFromInputOutputNames_GeminiWithAbsolutePositions) {
+  std::vector<absl::string_view> input_names = {
+      "token_ids", "positions", "absolute_positions", "attn_mask"};
+  std::vector<absl::string_view> output_names = {"logits"};
+  ASSERT_OK_AND_ASSIGN(auto signatures, GetModelSignaturesFromInputOutputNames(
+                                            input_names, output_names));
+  EXPECT_EQ(signatures.input_tokens, "token_ids");
+  EXPECT_EQ(signatures.input_positions, "positions");
+  EXPECT_EQ(signatures.absolute_input_positions, "absolute_positions");
   EXPECT_EQ(signatures.input_attn_mask, "attn_mask");
   EXPECT_EQ(signatures.output_logits, "logits");
 }
@@ -206,10 +221,11 @@ TEST(LlmLiteRTCompiledModelExecutorUtilsTest, GetPrefillRunnerSetFromModel) {
                                               ModelType::kTfLitePrefillDecode));
   ASSERT_NE(litert_model, nullptr);
 
-  ASSERT_OK_AND_ASSIGN(
-      auto prefill_runner_set,
-      GetPrefillRunnerSetFromModel(*litert_model, "prefill",
-                                   /*input_positions_name=*/"input_pos"));
+  ASSERT_OK_AND_ASSIGN(auto prefill_runner_set,
+                       GetPrefillRunnerSetFromModel(
+                           *litert_model, "prefill",
+                           /*input_positions_name=*/"input_pos",
+                           /*absolute_input_positions_name=*/std::nullopt));
   EXPECT_THAT(prefill_runner_set, ElementsAre(Pair(160, "prefill")));
 }
 

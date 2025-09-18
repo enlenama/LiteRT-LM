@@ -14,6 +14,7 @@
 
 #include "runtime/executor/llm_litert_compiled_model_executor.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -48,6 +49,7 @@
 #include "runtime/executor/litert_compiled_model_executor_utils.h"
 #include "runtime/executor/llm_executor_io_types.h"
 #include "runtime/executor/llm_executor_settings.h"
+#include "runtime/executor/llm_litert_compiled_model_cache_utils.h"
 #include "runtime/util/convert_tensor_buffer.h"
 #include "runtime/util/file_util.h"
 #include "runtime/util/litert_status_util.h"
@@ -60,6 +62,13 @@ using ::absl::Span;
 using ::litert::Expected;
 using ::litert::GpuOptions;
 using ::litert::TensorBuffer;
+
+// TODO(b/446203106): Make these configurable to the executor settings to run
+// these experiments for initial tokens to retain and number of tokens to delete
+// in one go. The model's context size should be set using the inout flag.
+constexpr int kTokensToDrop = 1024;
+constexpr int kInitTokensToRetain = 256;
+constexpr int kContextSize = 4096;
 
 // Names of the signature runners, used to get the signature runners from the
 // interpreter.
@@ -235,6 +244,13 @@ absl::Status LlmLiteRtCompiledModelExecutor::Prefill(
     prefill_input_buffers_[signatures_.input_positions] =
         std::move(*positions_buffer);
 
+    if (signatures_.absolute_input_positions.has_value()) {
+      auto absolute_positions_buffer = compiled_model_.CreateInputBuffer(
+          prefill_signature, signatures_.absolute_input_positions.value());
+      prefill_input_buffers_[signatures_.absolute_input_positions.value()] =
+          std::move(*absolute_positions_buffer);
+    }
+
     if (signatures_.input_attn_mask.has_value()) {
       auto attn_mask_buffer = compiled_model_.CreateInputBuffer(
           prefill_signature, signatures_.input_attn_mask.value());
@@ -267,6 +283,25 @@ absl::Status LlmLiteRtCompiledModelExecutor::PrefillInternal(
         static_cast<int32_t*>(prefill_input_pos_lock_and_addr.second);
     bool has_input_attn_mask = signatures_.input_attn_mask.has_value();
 
+    // Create a absolute positions for the current step of the execution.
+    // Only used if absolute_input_positions is provided in the model
+    // signatures.
+    auto* prefill_input_abs_pos_ptr = static_cast<int32_t*>(nullptr);
+    if (signatures_.absolute_input_positions.has_value()) {
+      auto& prefill_input_abs_pos =
+          prefill_input_buffers_[signatures_.absolute_input_positions.value()];
+      // Create a absolute positions equivalent to the input positions.
+      LITERT_ASSIGN_OR_RETURN_ABSL(auto prefill_input_abs_pos_size,
+                                   prefill_input_abs_pos.PackedSize());
+      LITERT_ASSIGN_OR_RETURN_ABSL(
+          auto prefill_input_abs_pos_lock_and_addr,
+          ::litert::TensorBufferScopedLock::Create(
+              prefill_input_abs_pos, TensorBuffer::LockMode::kWrite));
+      auto* prefill_input_abs_pos_ptr =
+          static_cast<int32_t*>(prefill_input_abs_pos_lock_and_addr.second);
+      memset(prefill_input_abs_pos_ptr, 0, prefill_input_abs_pos_size);
+    }
+
     memset(prefill_input_pos_ptr, 0, prefill_input_pos_size);
     if (has_input_attn_mask) {
       RETURN_IF_ERROR(InitializeAttentionMask(
@@ -287,6 +322,14 @@ absl::Status LlmLiteRtCompiledModelExecutor::PrefillInternal(
       // prefill.
       prefill_length = ids.size() - 1;
     }
+    // Delete the tokens from the KV cache if needed to fit the next prefill
+    // graph inside the KV cache. May need to delete
+    // multiple times if the number of tokens to delete is small compared to the
+    // prefill graph size.
+    while (DeleteTokensIfNeeded(
+        input_kv_cache_buffers_, kTokensToDrop, kInitTokensToRetain,
+        current_step_ + prefill_length, start_timestep_, kContextSize)) {
+    };
     for (int i = 0; i < prefill_length; input_idx++, current_step_++) {
       if (next_input_token_id_ != -1) {
         // Use next_input_token_id_ if it is valid.
@@ -301,7 +344,13 @@ absl::Status LlmLiteRtCompiledModelExecutor::PrefillInternal(
         // Only increase i if we used the token inside ids.
         i++;
       }
-      prefill_input_pos_ptr[input_idx] = current_step_;
+      prefill_input_pos_ptr[input_idx] = current_step_ - start_timestep_;
+      // If absolute input positions is provided, we will fill it with the
+      // current step since it sets the positional embeddings.
+      if (signatures_.absolute_input_positions.has_value() &&
+          prefill_input_abs_pos_ptr != nullptr) {
+        prefill_input_abs_pos_ptr[input_idx] = current_step_;
+      }
     }
     if (!signatures_.input_tokens.empty()) {
       auto& prefill_input_buffer =
@@ -338,7 +387,7 @@ absl::Status LlmLiteRtCompiledModelExecutor::PrefillInternal(
     if (has_input_attn_mask) {
       RETURN_IF_ERROR(FillAttentionMask(
           prefill_input_buffers_[signatures_.input_attn_mask.value()],
-          start_step,
+          start_step - start_timestep_,
           /*steps=*/current_step_ - start_step));
     }
   }
@@ -482,9 +531,9 @@ absl::Status LlmLiteRtCompiledModelExecutor::Decode(
           IsCalculationPrecisionF16()));
       RETURN_IF_ERROR(FillAttentionMask(
           decode_input_buffers_[signatures_.input_attn_mask.value()],
-          current_step_, /*steps=*/1));
+          current_step_ - start_timestep_, /*steps=*/1));
     }
-    decode_input_pos_ptr[0] = current_step_;
+    decode_input_pos_ptr[0] = current_step_ - start_timestep_;
   }
 
   absl::flat_hash_map<absl::string_view, ::litert::TensorBuffer>
@@ -519,6 +568,10 @@ absl::Status LlmLiteRtCompiledModelExecutor::Decode(
   RET_CHECK(res) << "Failed to run compiled model: " << res.Error().Message();
   std::swap(input_kv_cache_buffers_, output_kv_cache_buffers_);
 
+  // Delete tokens from the KV cache if needed.
+  DeleteTokensIfNeeded(input_kv_cache_buffers_, kTokensToDrop,
+                       kInitTokensToRetain, current_step_, start_timestep_,
+                       kContextSize);
   ++current_step_;
   return absl::OkStatus();
 }
@@ -598,6 +651,18 @@ LlmLiteRtCompiledModelExecutor::DecodeLogits(const ExecutorInputs& inputs) {
           current_step_, /*steps=*/1));
     }
     decode_input_pos_ptr[0] = current_step_;
+    if (signatures_.absolute_input_positions.has_value()) {
+      auto& decode_absolute_input_pos_buffer =
+          decode_input_buffers_[signatures_.absolute_input_positions.value()];
+      auto decode_absolute_input_pos_lock_and_addr =
+          ::litert::TensorBufferScopedLock::Create(
+              decode_absolute_input_pos_buffer, TensorBuffer::LockMode::kWrite);
+      RET_CHECK(decode_absolute_input_pos_lock_and_addr)
+          << "Failed to lock decode absolute input position buffer.";
+      auto* decode_absolute_input_pos_ptr = static_cast<int32_t*>(
+          decode_absolute_input_pos_lock_and_addr->second);
+      decode_absolute_input_pos_ptr[0] = current_step_;
+    }
   }
 
   absl::flat_hash_map<absl::string_view, ::litert::TensorBuffer>
@@ -843,6 +908,7 @@ LlmLiteRtCompiledModelExecutor::Create(LlmExecutorSettings executor_settings,
     // into prefill function to create them based on the ids size.
     if (input_name == signatures.input_tokens ||
         input_name == signatures.input_positions ||
+        input_name == signatures.absolute_input_positions ||
         input_name == signatures.input_attn_mask) {
       continue;
     }
@@ -936,7 +1002,9 @@ LlmLiteRtCompiledModelExecutor::Create(LlmExecutorSettings executor_settings,
   ASSIGN_OR_RETURN(auto prefill_runner_set,
                    GetPrefillRunnerSetFromModel(
                        *litert_model, kPrefillSignatureRunner,
-                       /*input_positions_name=*/signatures.input_positions));
+                       /*input_positions_name=*/signatures.input_positions,
+                       /*absolute_input_positions_name=*/
+                       signatures.absolute_input_positions));
   RET_CHECK(!prefill_runner_set.empty()) << "No prefill runner available.";
 
   std::unique_ptr<EmbeddingLookupManager> embedding_lookup;

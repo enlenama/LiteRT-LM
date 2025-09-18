@@ -89,6 +89,8 @@ constexpr char kPyTorchCpuOnly_OutputLogits[] = "logits";
 // Gemma 3n with external embeddings model signature.
 // Input: [max_seq_len]
 constexpr char kExternalEmbeddingsModel_InputPositions[] = "input_pos";
+// Input: [batch_size, max_seq_len]
+constexpr char kExternalEmbeddingsModel_InputAbsPositions[] = "input_abs_pos";
 // Input: [batch_size, 1, max_seq_len, context_size]
 constexpr char kExternalEmbeddingsModel_InputAttnMask[] = "mask";
 // Input: [batch_size, max_seq_len, embedding_dim]
@@ -104,6 +106,8 @@ constexpr char kExternalEmbeddingsModel_OutputLogits[] = "logits";
 constexpr char kGemini_InputTokens[] = "token_ids";
 // Input: [batch_size, max_seq_len]
 constexpr char kGemini_InputPositions[] = "positions";
+// Input: [batch_size, max_seq_len]
+constexpr char kGemini_InputAbsPositions[] = "absolute_positions";
 // Input: [batch_size, max_seq_len, 1, context_size]
 constexpr char kGemini_InputAttnMask[] = "attn_mask";
 // Output: [batch_size, max_seq_len, vocab_size]
@@ -142,6 +146,7 @@ bool IsGemini(const std::vector<absl::string_view>& input_names,
               const std::vector<absl::string_view>& output_names) {
   return Contains(input_names, kGemini_InputTokens) &&
          Contains(input_names, kGemini_InputPositions) &&
+         Contains(input_names, kGemini_InputAbsPositions) &&
          Contains(input_names, kGemini_InputAttnMask) &&
          Contains(output_names, kGemini_OutputLogits);
 }
@@ -154,7 +159,7 @@ bool IsExternalEmbeddingModel(
   return !Contains(input_names, kPyTorch_InputTokens) &&
          !Contains(input_names, kGemma2JAX_InputTokens) &&
          !Contains(input_names, kPyTorch_InputTokens) &&
-         Contains(input_names, kExternalEmbeddingsModel_InputPositions) &&
+         Contains(input_names, kExternalEmbeddingsModel_InputAbsPositions) &&
          Contains(input_names, kExternalEmbeddingsModel_InputAttnMask) &&
          Contains(input_names, kExternalEmbeddingsModel_Embeddings) &&
          Contains(output_names, kExternalEmbeddingsModel_OutputLogits);
@@ -188,6 +193,16 @@ BuildModelResourcesFromLitertLmFormat(ScopedFile model_file) {
 absl::StatusOr<ModelSignatures> GetModelSignaturesFromInputOutputNames(
     const std::vector<absl::string_view>& input_names,
     const std::vector<absl::string_view>& output_names) {
+  if (IsGemini(input_names, output_names)) {
+    return ModelSignatures{
+        .input_tokens = kGemini_InputTokens,
+        .input_positions = kGemini_InputPositions,
+        .absolute_input_positions = kGemini_InputAbsPositions,
+        .input_attn_mask = kGemini_InputAttnMask,
+        .output_logits = kGemini_OutputLogits,
+    };
+  }
+
   if (IsGemma2JAX(input_names, output_names)) {
     return ModelSignatures{
         .input_tokens = kGemma2JAX_InputTokens,
@@ -214,18 +229,10 @@ absl::StatusOr<ModelSignatures> GetModelSignaturesFromInputOutputNames(
     };
   }
 
-  if (IsGemini(input_names, output_names)) {
-    return ModelSignatures{
-        .input_tokens = kGemini_InputTokens,
-        .input_positions = kGemini_InputPositions,
-        .input_attn_mask = kGemini_InputAttnMask,
-        .output_logits = kGemini_OutputLogits,
-    };
-  }
-
   if (IsExternalEmbeddingModel(input_names, output_names)) {
     return ModelSignatures{
         .input_positions = kExternalEmbeddingsModel_InputPositions,
+        .absolute_input_positions = kExternalEmbeddingsModel_InputAbsPositions,
         .input_attn_mask = kExternalEmbeddingsModel_InputAttnMask,
         .input_embeddings = kExternalEmbeddingsModel_Embeddings,
         .input_per_layer_embeddings =
@@ -242,7 +249,8 @@ absl::StatusOr<ModelSignatures> GetModelSignaturesFromInputOutputNames(
 
 absl::StatusOr<SortedPrefillSignatureMap> GetPrefillRunnerSetFromModel(
     const ::litert::Model& model, const std::string& signature_name_base,
-    const std::string& input_positions_name) {
+    const std::string& input_positions_name,
+    std::optional<std::string> absolute_input_positions_name) {
   SortedPrefillSignatureMap prefill_runner_set;
   auto signatures = model.GetSignatures();
   for (auto& signature : *signatures) {
@@ -255,6 +263,14 @@ absl::StatusOr<SortedPrefillSignatureMap> GetPrefillRunnerSetFromModel(
       auto input_positions_tensor = subgraph->Input(input_positions_name);
       if (!input_positions_tensor) {
         return absl::InternalError(input_positions_tensor.Error().Message());
+      }
+      if (absolute_input_positions_name.has_value()) {
+        auto absolute_input_positions_tensor =
+            subgraph->Input(*absolute_input_positions_name);
+        if (!absolute_input_positions_tensor) {
+          return absl::InternalError(
+              absolute_input_positions_tensor.Error().Message());
+        }
       }
       auto ranked_tensor_type = input_positions_tensor->RankedTensorType();
       if (!ranked_tensor_type) {
