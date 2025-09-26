@@ -96,6 +96,10 @@ absl::Status EngineSettings::MaybeUpdateAndValidate(
   }
 
   // Convert the start/stop tokens from string to token ids.
+  // Note: Tokenizers such as SentencePieceTokenizer do not allow using
+  // `TextToTokenIds` for tokenizing special tokens such as BOS and EOS. So
+  // providing BOS and EOS in metadata as strings requires those tokens to *not*
+  // be marked as special and be tokenizable through normal API.
   for (auto& stop_token : *metadata.mutable_stop_tokens()) {
     if (stop_token.has_token_str()) {
       auto stop_token_ids = tokenizer.TextToTokenIds(stop_token.token_str());
@@ -111,6 +115,23 @@ absl::Status EngineSettings::MaybeUpdateAndValidate(
     if (start_token_ids.ok()) {
       metadata.mutable_start_token()->mutable_token_ids()->mutable_ids()->Add(
           start_token_ids->begin(), start_token_ids->end());
+    }
+  }
+
+  // If no stop/start tokens provided, use tokenizer defaults, if available.
+  if (!metadata.stop_tokens_size()) {
+    auto eos_id_or = tokenizer.EosId();
+    if (eos_id_or.ok()) {
+      metadata.add_stop_tokens()->mutable_token_ids()->mutable_ids()->Add(
+          eos_id_or.value());
+    }
+  }
+  if (!metadata.start_token().has_token_str() &&
+      !metadata.start_token().has_token_ids()) {
+    auto bos_id_or = tokenizer.BosId();
+    if (bos_id_or.ok()) {
+      metadata.mutable_start_token()->mutable_token_ids()->mutable_ids()->Add(
+          bos_id_or.value());
     }
   }
 

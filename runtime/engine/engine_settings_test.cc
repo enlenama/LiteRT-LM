@@ -321,6 +321,28 @@ TEST(EngineSettingsTest, MaybeUpdateAndValidate) {
   EXPECT_OK(IsExpectedLlmMetadata(settings->GetLlmMetadata().value()));
 }
 
+TEST(EngineSettingsTest, MaybeUpdateAndValidateUsesTokenizerDefaults) {
+  auto model_assets = ModelAssets::Create("test_model_path_1");
+  ASSERT_OK(model_assets);
+  auto settings = EngineSettings::CreateDefault(*model_assets);
+  EXPECT_OK(settings);
+
+  FakeTokenizer tokenizer;
+  proto::LlmMetadata llm_metadata = CreateLlmMetadata();
+  llm_metadata.clear_start_token();
+  llm_metadata.clear_stop_tokens();
+
+  EXPECT_OK(settings->MaybeUpdateAndValidate(tokenizer, &llm_metadata));
+  const proto::LlmMetadata& llm_metadata_from_settings =
+      settings->GetLlmMetadata().value();
+  EXPECT_EQ(llm_metadata_from_settings.start_token().token_ids().ids_size(), 1);
+  EXPECT_EQ(llm_metadata_from_settings.start_token().token_ids().ids(0), 2);
+  EXPECT_EQ(llm_metadata_from_settings.stop_tokens_size(), 1);
+  EXPECT_EQ(llm_metadata_from_settings.stop_tokens(0).token_ids().ids_size(),
+            1);
+  EXPECT_EQ(llm_metadata_from_settings.stop_tokens(0).token_ids().ids(0), 1);
+}
+
 TEST(EngineSettingsTest, MaybeUpdateAndValidateNPU) {
   auto model_assets = ModelAssets::Create("test_model_path_1");
   ASSERT_OK(model_assets);
