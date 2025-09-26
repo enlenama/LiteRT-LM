@@ -50,6 +50,7 @@
 #include "runtime/executor/vision_executor_settings.h"
 #include "runtime/util/convert_tensor_buffer.h"
 #include "runtime/util/litert_status_util.h"
+#include "runtime/util/perfetto_profiling.h"
 #include "runtime/util/status_macros.h"  // NOLINT
 
 namespace litert::lm {
