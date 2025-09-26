@@ -349,6 +349,8 @@ cc_library(
         "@platforms//os:ios": [],
         "@platforms//os:macos": [],
         "@platforms//os:windows": [],
+        "@platforms//os:linux": [
+        ],
         "//conditions:default": [
         ],
     }),
