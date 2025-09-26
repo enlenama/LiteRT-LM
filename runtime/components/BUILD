@@ -361,7 +361,11 @@ cc_library(
         "@platforms//os:ios": [],
         "@platforms//os:macos": [],
         "@platforms//os:windows": [],
+        "@platforms//os:linux": [
+            ":top_k_webgpu_sampler_static",
+        ],
         "//conditions:default": [
+            ":top_k_opencl_sampler_static",
         ],
     }),
 )
