@@ -16,7 +16,8 @@ load("@org_tensorflow//tensorflow:pytype.default.bzl", "pytype_strict_binary", "
 load("@rules_python//python:defs.bzl", "py_test")
 
 package(
-    default_hdrs_check = "strict",
+    
+    
     default_visibility = [
         "//visibility:public",
     ],

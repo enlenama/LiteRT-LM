@@ -126,6 +126,9 @@ build --repo_env=HERMETIC_PYTHON_VERSION=3.13
 
 # Default options should come above this line.
 
+# Enable CGO for Go on all platforms, including Windows.
+build --@io_bazel_rules_go//go/config:pure=false
+
 # Enforce clang as C/C++ compiler on Linux.
 build:linux --action_env=CC=clang
 build:linux --action_env=CXX=clang++

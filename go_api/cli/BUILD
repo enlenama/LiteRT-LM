@@ -12,12 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package_group(
-    name = "litert_lm_schema",
-    packages = [
-        "//schema/...",
-    ],
-)
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 package(
     
@@ -27,9 +23,21 @@ package(
     ],
 )
 
-licenses(["notice"])
-
-filegroup(
-    name = "testdata",
-    srcs = glob(["testdata/*"]),
+go_binary(
+    name = "lit",
+    srcs = ["main.go"],
+    cgo = 1,
+    tags = ["local"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//go_api/cli/cmd",
+    ],
 )
+
+
+# go_test(
+#     name = "lit_test",
+#     srcs = ["main_test.go"],
+#     cgo = 1,
+#     embed = [":lit"],
+# )

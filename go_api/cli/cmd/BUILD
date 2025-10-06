@@ -12,12 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package_group(
-    name = "litert_lm_schema",
-    packages = [
-        "//schema/...",
-    ],
-)
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 package(
     
@@ -27,9 +22,19 @@ package(
     ],
 )
 
-licenses(["notice"])
-
-filegroup(
-    name = "testdata",
-    srcs = glob(["testdata/*"]),
+go_library(
+    name = "cmd",
+    srcs = [
+        "list.go",
+        "list_models.go",
+        "pull.go",
+        "rm.go",
+        "root.go",
+        "run.go",
+    ],
+    importpath = "litert-lm/go_api/cli/cmd/cmd",
+    deps = [
+        "@com_github_spf13_cobra//:cobra",
+        "//go_api:engine",
+    ],
 )

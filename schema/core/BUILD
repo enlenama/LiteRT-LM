@@ -17,7 +17,8 @@
 load("@flatbuffers//:build_defs.bzl", "flatbuffer_cc_library", "flatbuffer_py_library")
 
 package(
-    default_hdrs_check = "strict",
+    
+    
     default_visibility = [
         "//visibility:public",
     ],

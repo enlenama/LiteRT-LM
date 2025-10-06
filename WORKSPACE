@@ -72,6 +72,78 @@ load("@crate_index//:defs.bzl", "crate_repositories")
 
 crate_repositories()
 
+# Go rules
+http_archive(
+    name = "bazel_gazelle",
+    sha256 = "d3fa66a39028e97d76f9e2db8f1b0c11c099e8e01bf363a923074784e451f809",
+    url = "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.33.0/bazel-gazelle-v0.33.0.tar.gz",
+)
+
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
+
+http_archive(
+    name = "io_bazel_rules_go",
+    sha256 = "f74c98d6df55217a36859c74b460e774abc0410a47cc100d822be34d5f990f16",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.47.1/rules_go-v0.47.1.zip",
+        "https://github.com/bazelbuild/rules_go/releases/download/v0.47.1/rules_go-v0.47.1.zip",
+    ],
+)
+
+load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
+
+go_rules_dependencies()
+
+gazelle_dependencies(go_sdk = "go_sdk")
+
+go_repository(
+    name = "com_github_spf13_cobra",
+    importpath = "github.com/spf13/cobra",
+    sum = "h1:hyqWnYt1ZQShIddO5kBpj3vu05/++x6tJ6dg8EC572I=",
+    version = "v1.7.0",
+)
+
+http_archive(
+    name = "com_github_inconshreveable_mousetrap",
+    build_file_content = """
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:windows": [],  # Empty srcs for Windows
+        "//conditions:default": [
+            "mousetrap.go",
+            "mousetrap_unix.go",
+        ],
+    }),
+    importpath = "github.com/inconshreveable/mousetrap",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:windows": [], # No deps for Windows
+        "//conditions:default": [],
+    }),
+)
+""",
+    sha256 = "7f673718f868bc7dee7dd861311ce7b2b95472ad630caaa15ef1ab61a6ff30e9",
+    strip_prefix = "mousetrap-1.1.0",
+    url = "https://github.com/inconshreveable/mousetrap/archive/refs/tags/v1.1.0.zip",
+)
+
+go_repository(
+    name = "org_golang_x_sys",
+    importpath = "golang.org/x/sys",
+    sum = "h1:KHjCJyddX0LoSTb3J+vWpupP9p0oznkqVk/IfjymZbo=",
+    version = "v0.26.0",
+)
+
+go_repository(
+    name = "com_github_spf13_pflag",
+    importpath = "github.com/spf13/pflag",
+    sum = "h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=",
+    version = "v1.0.5",
+)
+
 # TensorFlow
 http_archive(
     name = "org_tensorflow",

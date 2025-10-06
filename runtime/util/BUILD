@@ -16,7 +16,8 @@
 # [Google-internal load of `cc_test`]
 
 package(
-    default_hdrs_check = "strict",
+    
+    
     default_visibility = [
         "//:__subpackages__",
     ],
