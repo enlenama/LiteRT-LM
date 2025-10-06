@@ -120,3 +120,23 @@ cc_test(
         "//runtime/util:test_utils",
     ],
 )
+
+cc_library(
+    name = "tool_manager",
+    hdrs = ["tool_manager.h"],
+    deps = [
+        "@com_google_absl//absl/status:statusor",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "tool_manager_test",
+    srcs = ["tool_manager_test.cc"],
+    deps = [
+        ":tool_manager",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status:statusor",
+        "@nlohmann_json//:json",
+    ],
+)
