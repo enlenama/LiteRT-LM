@@ -119,22 +119,10 @@ class Conversation {
 
  private:
   explicit Conversation(
-      std::unique_ptr<Engine::Session> session,
-      std::unique_ptr<ModelDataProcessor> model_data_processor, Preface preface,
-      PromptTemplate prompt_template)
-      : session_(std::move(session)),
-        model_data_processor_(std::move(model_data_processor)),
-        preface_(preface),
-        prompt_template_(std::move(prompt_template)) {}
+      std::unique_ptr<ModelDataProcessor> model_data_processor)
+      : model_data_processor_(std::move(model_data_processor)) {}
 
-  absl::StatusOr<std::string> GetSingleTurnText(const Message& message) const;
-
-  std::unique_ptr<Engine::Session> session_;
   std::unique_ptr<ModelDataProcessor> model_data_processor_;
-  Preface preface_;
-  PromptTemplate prompt_template_;
-  mutable absl::Mutex history_mutex_;
-  std::vector<Message> history_ ABSL_GUARDED_BY(history_mutex_);
 };
 }  // namespace litert::lm
 

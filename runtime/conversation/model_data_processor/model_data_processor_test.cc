@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "runtime/conversation/internal_callbacks_adapter.h"
+#include "runtime/conversation/model_data_processor/model_data_processor.h"
 
 #include <memory>
 #include <vector>
@@ -22,6 +22,7 @@
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "nlohmann/json.hpp"  // from @nlohmann_json
+#include "runtime/components/prompt_template.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/config_registry.h"
 #include "runtime/conversation/model_data_processor/gemma3_data_processor.h"
@@ -82,7 +83,8 @@ class InternalCallbacksAdapterTest : public testing::Test {
                   "parameters": { "properties": { "x": { "type": "integer" } } }
                 }])json")};
     ASSERT_OK_AND_ASSIGN(model_data_processor_,
-                         Gemma3DataProcessor::Create(config, preface));
+                         Gemma3DataProcessor::Create(
+                             nullptr, PromptTemplate(""), preface, config));
 
     processor_args_ = DataProcessorArguments();
   }

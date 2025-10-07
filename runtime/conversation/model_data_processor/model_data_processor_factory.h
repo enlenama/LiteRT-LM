@@ -20,9 +20,11 @@
 #include <variant>
 
 #include "absl/status/statusor.h"  // from @com_google_absl
+#include "runtime/components/prompt_template.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/config_registry.h"
 #include "runtime/conversation/model_data_processor/model_data_processor.h"
+#include "runtime/engine/engine.h"
 #include "runtime/proto/llm_model_type.pb.h"
 
 namespace litert::lm {
@@ -31,8 +33,8 @@ namespace litert::lm {
 // config.
 absl::StatusOr<std::unique_ptr<ModelDataProcessor>> CreateModelDataProcessor(
     const proto::LlmModelType& llm_model_type,
-    const DataProcessorConfig& config = std::monostate(),
-    std::optional<Preface> preface = std::nullopt);
+    std::unique_ptr<Engine::Session> session, PromptTemplate prompt_template,
+    Preface preface, const DataProcessorConfig& config = std::monostate());
 
 }  // namespace litert::lm
 

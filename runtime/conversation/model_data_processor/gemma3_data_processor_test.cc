@@ -140,7 +140,8 @@ MATCHER_P(HasInputAudio, audio_input, "") {
 }
 
 TEST(Gemma3DataProcessorTest, ToInputDataVectorTextOnly) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   const std::string rendered_template_prompt =
       "<start_of_turn>user\ntest prompt\n<end_of_turn>";
   const nlohmann::ordered_json messages = {
@@ -157,9 +158,10 @@ TEST(Gemma3DataProcessorTest, ToInputDataVectorTextOnly) {
 
 TEST(Gemma3DataProcessorTest, ToInputDataVectorTextAndImage) {
   ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
-                                           /*Gemma3DataProcessorConfig=*/{
-                                               .image_tensor_height = 224,
-                                               .image_tensor_width = 128}));
+                                           nullptr, PromptTemplate(""), {},
+                                           /*Gemma3DataProcessorConfig=*/
+                                           {.image_tensor_height = 224,
+                                            .image_tensor_width = 128}));
   const std::string rendered_template_prompt =
       "<start_of_turn>user\nHere is an image of apples "
       "<start_of_image><end_of_turn>";
@@ -192,7 +194,8 @@ TEST(Gemma3DataProcessorTest, ToInputDataVectorTextAndImage) {
 }
 
 TEST(Gemma3DataProcessorTest, ToMessage) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   Responses responses(1);
   responses.GetMutableResponseTexts()[0] = "test response";
   ASSERT_OK_AND_ASSIGN(const Message message,
@@ -222,7 +225,8 @@ TEST(Gemma3DataProcessorTest, ToMessageWithToolCall) {
                           }])json")};
 
   ASSERT_OK_AND_ASSIGN(auto processor,
-                       Gemma3DataProcessor::Create(config, preface));
+                       Gemma3DataProcessor::Create(nullptr, PromptTemplate(""),
+                                                   preface, config));
   Responses responses(1);
   responses.GetMutableResponseTexts()[0] = R"(This is some text.
 ```tool_code
@@ -274,7 +278,8 @@ TEST(Gemma3DataProcessorTest, PromptTemplateToInputDataVectorTextOnly) {
   ASSERT_OK_AND_ASSIGN(const std::string rendered_prompt,
                        prompt_template.Apply(template_input));
 
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   ASSERT_OK_AND_ASSIGN(
       const std::vector<InputData> input_data,
       processor->ToInputDataVector(rendered_prompt, messages, {}));
@@ -319,7 +324,8 @@ TEST(Gemma3DataProcessorTest, PromptTemplateToInputDataVectorTextAndImage) {
   ASSERT_OK_AND_ASSIGN(const std::string rendered_prompt,
                        prompt_template.Apply(template_input));
 
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   ASSERT_OK_AND_ASSIGN(
       const std::vector<InputData> input_data,
       processor->ToInputDataVector(rendered_prompt, messages, {}));
@@ -349,7 +355,8 @@ I am doing well, thanks for asking.<end_of_turn>
 }
 
 TEST(Gemma3DataProcessorTest, FormatTools) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   nlohmann::ordered_json tools = nlohmann::ordered_json::parse(R"json([
     {
       "name": "get_weather",
@@ -406,7 +413,8 @@ TEST(Gemma3DataProcessorTest, FormatTools) {
 }
 
 TEST(Gemma3DataProcessorTest, FormatToolsWithInvalidInput) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   // `tools` is not an array.
   nlohmann::ordered_json tools = nlohmann::ordered_json::parse(R"json({
     "name": "get_weather",
@@ -427,7 +435,8 @@ TEST(Gemma3DataProcessorTest, FormatToolsWithInvalidInput) {
 }
 
 TEST(Gemma3DataProcessorTest, MessageToTemplateInputWithStringContent) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   const nlohmann::ordered_json message = {
       {"role", "user"},
       {"content", "test prompt"},
@@ -440,7 +449,8 @@ TEST(Gemma3DataProcessorTest, MessageToTemplateInputWithStringContent) {
 }
 
 TEST(Gemma3DataProcessorTest, MessageToTemplateInputWithTextContent) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   const nlohmann::ordered_json message = {
       {"role", "user"},
       {"content", {{{"type", "text"}, {"text", "test prompt"}}}},
@@ -452,7 +462,8 @@ TEST(Gemma3DataProcessorTest, MessageToTemplateInputWithTextContent) {
 }
 
 TEST(Gemma3DataProcessorTest, MessageToTemplateInputNoContent) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   const nlohmann::ordered_json message = {
       {"role", "user"},
   };
@@ -463,7 +474,8 @@ TEST(Gemma3DataProcessorTest, MessageToTemplateInputNoContent) {
 }
 
 TEST(Gemma3DataProcessorTest, MessageToTemplateInputWithToolCalls) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   const nlohmann::ordered_json message = nlohmann::ordered_json::parse(R"json({
     "role": "assistant",
     "content": [
@@ -515,7 +527,8 @@ TEST(Gemma3DataProcessorTest, MessageToTemplateInputWithToolCalls) {
 }
 
 TEST(Gemma3DataProcessorTest, MessageToTemplateInputWithToolResponse) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   const nlohmann::ordered_json message = nlohmann::ordered_json::parse(R"json({
     "role": "tool",
     "content": [
@@ -544,7 +557,8 @@ TEST(Gemma3DataProcessorTest, MessageToTemplateInputWithToolResponse) {
 }
 
 TEST(Gemma3DataProcessorTest, MessageToTemplateInputWithMultipleToolResponses) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   const nlohmann::ordered_json message = nlohmann::ordered_json::parse(R"json({
     "role": "tool",
     "content": [
@@ -645,7 +659,8 @@ TEST(Gemma3DataProcessorTest, RenderTemplateWithToolCalls) {
   ])json");
 
   // Create the model data processor.
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
 
   // Convert the messages to template inputs.
   nlohmann::ordered_json message_template_input =
@@ -682,7 +697,8 @@ get_weather(location="London")
 #if !defined(WIN32) && !defined(_WIN32) && !defined(__WIN32__) && \
     !defined(__NT__) && !defined(_WIN64)
 TEST(Gemma3DataProcessorTest, ToInputDataVectorTextAndAudio) {
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   const std::string rendered_template_prompt =
       "<start_of_turn>user\nHere is an audio. Please transcribe it: "
       "<start_of_audio><end_of_turn>";
@@ -744,7 +760,8 @@ TEST(Gemma3DataProcessorTest, PromptTemplateToInputDataVectorTextAndAudio) {
   ASSERT_OK_AND_ASSIGN(const std::string rendered_prompt,
                        prompt_template.Apply(template_input));
 
-  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, Gemma3DataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   ASSERT_OK_AND_ASSIGN(
       const std::vector<InputData> input_data,
       processor->ToInputDataVector(rendered_prompt, messages, {}));

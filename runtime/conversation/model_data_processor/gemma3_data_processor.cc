@@ -32,11 +32,13 @@
 #include "runtime/components/preprocessor/audio_preprocessor_miniaudio.h"
 #include "runtime/components/preprocessor/image_preprocessor.h"
 #include "runtime/components/preprocessor/stb_image_preprocessor.h"
+#include "runtime/components/prompt_template.h"
 #include "runtime/components/tool_use/parser_utils.h"
 #include "runtime/components/tool_use/python_tool_format_utils.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/data_utils.h"
 #include "runtime/conversation/model_data_processor/gemma3_data_processor_config.h"
+#include "runtime/engine/engine.h"
 #include "runtime/engine/io_types.h"
 #include "runtime/util/memory_mapped_file.h"
 #include "runtime/util/status_macros.h"
@@ -58,14 +60,15 @@ bool IsAudio(absl::string_view part) {
 }  // namespace
 
 absl::StatusOr<std::unique_ptr<Gemma3DataProcessor>>
-Gemma3DataProcessor::Create(Gemma3DataProcessorConfig config,
-                            std::optional<Preface> preface) {
+Gemma3DataProcessor::Create(std::unique_ptr<Engine::Session> session,
+                            PromptTemplate prompt_template, Preface preface,
+                            Gemma3DataProcessorConfig config) {
   ASSIGN_OR_RETURN(auto audio_preprocessor,
                    AudioPreprocessorMiniAudio::Create(
                        AudioPreprocessorConfig::CreateDefaultUsmConfig()));
   return absl::WrapUnique(new Gemma3DataProcessor(
-      config, preface, std::make_unique<StbImagePreprocessor>(),
-      std::move(audio_preprocessor)));
+      std::move(session), prompt_template, preface, config,
+      std::make_unique<StbImagePreprocessor>(), std::move(audio_preprocessor)));
 }
 
 absl::StatusOr<ordered_json> Gemma3DataProcessor::MessageToTemplateInput(
@@ -224,8 +227,8 @@ absl::StatusOr<Message> Gemma3DataProcessor::ToMessageImpl(
   ASSIGN_OR_RETURN(absl::string_view response_text,
                    responses.GetResponseTextAt(0));
   ordered_json message = {{"role", "assistant"}};
-  if (preface_.has_value() && std::holds_alternative<JsonPreface>(*preface_) &&
-      !std::get<JsonPreface>(*preface_).tools.empty()) {
+  if (std::holds_alternative<JsonPreface>(preface_) &&
+      !std::get<JsonPreface>(preface_).tools.empty()) {
     ASSIGN_OR_RETURN(
         ordered_json content_and_tool_calls,
         ParseTextAndToolCalls(
@@ -246,7 +249,7 @@ absl::StatusOr<Message> Gemma3DataProcessor::ToMessageImpl(
 }
 
 absl::StatusOr<ordered_json> Gemma3DataProcessor::FormatTools(
-    const ordered_json& tools) {
+    const ordered_json& tools) const {
   if (!tools.is_array()) {
     return absl::InvalidArgumentError("Tools must be an array.");
   }

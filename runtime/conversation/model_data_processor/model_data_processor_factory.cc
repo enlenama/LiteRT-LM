@@ -16,10 +16,12 @@
 
 #include <memory>
 #include <optional>
+#include <utility>
 #include <variant>
 
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
+#include "runtime/components/prompt_template.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/config_registry.h"
 #include "runtime/conversation/model_data_processor/gemma3_data_processor.h"
@@ -27,29 +29,33 @@
 #include "runtime/conversation/model_data_processor/generic_data_processor.h"
 #include "runtime/conversation/model_data_processor/generic_data_processor_config.h"
 #include "runtime/conversation/model_data_processor/model_data_processor.h"
+#include "runtime/engine/engine.h"
 #include "runtime/proto/llm_model_type.pb.h"
 
 namespace litert::lm {
 
 absl::StatusOr<std::unique_ptr<ModelDataProcessor>> CreateModelDataProcessor(
-    const proto::LlmModelType& model_type, const DataProcessorConfig& config,
-    std::optional<Preface> preface) {
+    const proto::LlmModelType& model_type,
+    std::unique_ptr<Engine::Session> session, PromptTemplate prompt_template,
+    Preface preface, const DataProcessorConfig& config) {
   switch (model_type.model_type_case()) {
     case proto::LlmModelType::kGemma3N:
     case proto::LlmModelType::kGemma3:
       return Gemma3DataProcessor::Create(
+          std::move(session), prompt_template, preface,
           std::holds_alternative<Gemma3DataProcessorConfig>(config)
               ? std::get<Gemma3DataProcessorConfig>(config)
-              : Gemma3DataProcessorConfig(),
-          preface);
+              : Gemma3DataProcessorConfig());
     case proto::LlmModelType::kGenericModel: {
       if (std::holds_alternative<GenericDataProcessorConfig>(config)) {
         return GenericDataProcessor::Create(
+            std::move(session), prompt_template, preface,
             std::holds_alternative<GenericDataProcessorConfig>(config)
                 ? std::get<GenericDataProcessorConfig>(config)
                 : GenericDataProcessorConfig());
       } else {
-        return GenericDataProcessor::Create();
+        return GenericDataProcessor::Create(std::move(session), prompt_template,
+                                            preface);
       }
     }
     default:

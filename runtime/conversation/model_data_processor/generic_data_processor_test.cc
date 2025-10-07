@@ -21,6 +21,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "nlohmann/json_fwd.hpp"  // from @nlohmann_json
+#include "runtime/components/prompt_template.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/generic_data_processor_config.h"
 #include "runtime/engine/io_types.h"
@@ -42,9 +43,9 @@ MATCHER_P(HasInputText, text_input, "") {
   }
   return text_bytes.value() == text_input->GetRawTextString().value();
 }
-
 TEST(GenericDataProcessorTest, ToInputDataVector) {
-  ASSERT_OK_AND_ASSIGN(auto processor, GenericDataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, GenericDataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   const std::string rendered_template_prompt =
       "<start_of_turn>user\ntest "
       "prompt\n<end_of_turn>\n<start_of_turn>assistant\ntest "
@@ -67,7 +68,8 @@ TEST(GenericDataProcessorTest, ToInputDataVector) {
 }
 
 TEST(GenericDataProcessorTest, ToMessageDefault) {
-  ASSERT_OK_AND_ASSIGN(auto processor, GenericDataProcessor::Create());
+  ASSERT_OK_AND_ASSIGN(auto processor, GenericDataProcessor::Create(
+                                           nullptr, PromptTemplate(""), {}));
   Responses responses(1);
   responses.GetMutableResponseTexts()[0] = "test response";
   ASSERT_OK_AND_ASSIGN(const Message message,
@@ -85,6 +87,7 @@ TEST(GenericDataProcessorTest, ToMessageDefault) {
 TEST(GenericDataProcessorTest, ToMessageModelRole) {
   ASSERT_OK_AND_ASSIGN(auto processor,
                        GenericDataProcessor::Create(
+                           nullptr, PromptTemplate(""), {},
                            GenericDataProcessorConfig{.model_role = "model"}));
   Responses responses(1);
   responses.GetMutableResponseTexts()[0] = "test response";

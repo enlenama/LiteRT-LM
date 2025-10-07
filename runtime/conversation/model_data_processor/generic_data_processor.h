@@ -38,11 +38,13 @@ class GenericDataProcessor
                                         GenericDataProcessorArguments> {
  public:
   static absl::StatusOr<std::unique_ptr<ModelDataProcessor>> Create(
+      std::unique_ptr<Engine::Session> session, PromptTemplate prompt_template,
+      Preface preface,
       GenericDataProcessorConfig config = GenericDataProcessorConfig());
 
   // Return the same tools as the input for generic models.
   absl::StatusOr<nlohmann::ordered_json> FormatTools(
-      const nlohmann::ordered_json& tools) override {
+      const nlohmann::ordered_json& tools) const override {
     return tools;
   }
 
@@ -62,8 +64,12 @@ class GenericDataProcessor
   const GenericDataProcessorConfig& GetConfig() override { return config_; }
 
  private:
-  explicit GenericDataProcessor(GenericDataProcessorConfig config)
-      : config_(config) {};
+  explicit GenericDataProcessor(std::unique_ptr<Engine::Session> session,
+                                PromptTemplate prompt_template, Preface preface,
+                                GenericDataProcessorConfig config)
+      : TypeSafeModelDataProcessor(std::move(session), prompt_template,
+                                   preface),
+        config_(config) {};
 
   absl::StatusOr<std::vector<InputData>> ToInputDataVectorImpl(
       const std::string& rendered_template_prompt,

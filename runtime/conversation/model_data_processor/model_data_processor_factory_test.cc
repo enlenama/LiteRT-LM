@@ -19,6 +19,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
+#include "runtime/components/prompt_template.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/config_registry.h"
 #include "runtime/conversation/model_data_processor/gemma3_data_processor_config.h"
@@ -38,7 +39,8 @@ TEST(ModelDataProcessorFactoryTest, CreateGenericModelDataProcessor) {
   proto::LlmModelType llm_model_type;
   llm_model_type.mutable_generic_model();
   ASSERT_OK_AND_ASSIGN(auto processor,
-                       CreateModelDataProcessor(llm_model_type));
+                       CreateModelDataProcessor(llm_model_type, nullptr,
+                                                PromptTemplate(""), {}));
   EXPECT_OK(processor->ToInputDataVector("test prompt", {},
                                          GenericDataProcessorArguments()));
   EXPECT_THAT(processor->ToInputDataVector("test prompt", {},
@@ -60,7 +62,7 @@ TEST(ModelDataProcessorFactoryTest, CreateGemma3DataProcessor) {
   ASSERT_OK_AND_ASSIGN(
       auto processor,
       CreateModelDataProcessor(
-          llm_model_type, std::monostate(),
+          llm_model_type, nullptr, PromptTemplate(""),
           JsonPreface{
               .messages = {{{"role", "system"},
                             {"content", "You are a helpful assistant."}}}}));
@@ -77,7 +79,9 @@ TEST(ModelDataProcessorFactoryTest, CreateGemma3DataProcessor) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 
   llm_model_type.mutable_gemma3();
-  ASSERT_OK_AND_ASSIGN(processor, CreateModelDataProcessor(llm_model_type));
+  ASSERT_OK_AND_ASSIGN(processor,
+                       CreateModelDataProcessor(llm_model_type, nullptr,
+                                                PromptTemplate(""), {}));
   EXPECT_OK(processor->ToInputDataVector("test prompt", {},
                                          Gemma3DataProcessorArguments()));
 }

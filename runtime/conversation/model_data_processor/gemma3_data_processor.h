@@ -26,9 +26,11 @@
 #include "nlohmann/json.hpp"  // from @nlohmann_json
 #include "runtime/components/preprocessor/audio_preprocessor.h"
 #include "runtime/components/preprocessor/image_preprocessor.h"
+#include "runtime/components/prompt_template.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/gemma3_data_processor_config.h"
 #include "runtime/conversation/model_data_processor/model_data_processor.h"
+#include "runtime/engine/engine.h"
 #include "runtime/engine/io_types.h"
 
 namespace litert::lm {
@@ -40,8 +42,9 @@ class Gemma3DataProcessor
  public:
   // Creates a Gemma3DataProcessor instance.
   static absl::StatusOr<std::unique_ptr<Gemma3DataProcessor>> Create(
-      Gemma3DataProcessorConfig config = Gemma3DataProcessorConfig(),
-      std::optional<Preface> preface = std::nullopt);
+      std::unique_ptr<Engine::Session> session, PromptTemplate prompt_template,
+      Preface preface,
+      Gemma3DataProcessorConfig config = Gemma3DataProcessorConfig());
 
   // Returns the config of the Gemma3DataProcessor.
   const Gemma3DataProcessorConfig& GetConfig() override { return config_; }
@@ -52,7 +55,7 @@ class Gemma3DataProcessor
 
   // Formats tool declarations.
   absl::StatusOr<nlohmann::ordered_json> FormatTools(
-      const nlohmann::ordered_json& tools) override;
+      const nlohmann::ordered_json& tools) const override;
 
   // Returns the start of tool call blocks.
   absl::string_view CodeFenceStart() override;
@@ -62,12 +65,14 @@ class Gemma3DataProcessor
 
  private:
   explicit Gemma3DataProcessor(
+      std::unique_ptr<Engine::Session> session, PromptTemplate prompt_template,
+      Preface preface,
       const Gemma3DataProcessorConfig& config = Gemma3DataProcessorConfig(),
-      std::optional<Preface> preface = std::nullopt,
       std::unique_ptr<ImagePreprocessor> image_preprocessor = nullptr,
       std::unique_ptr<AudioPreprocessor> audio_preprocessor = nullptr)
-      : config_(config),
-        preface_(preface),
+      : TypeSafeModelDataProcessor(std::move(session), prompt_template,
+                                   preface),
+        config_(config),
         image_preprocessor_(std::move(image_preprocessor)),
         audio_preprocessor_(std::move(audio_preprocessor)) {};
 
@@ -81,7 +86,6 @@ class Gemma3DataProcessor
       const Gemma3DataProcessorArguments& args) override;
 
   Gemma3DataProcessorConfig config_;
-  std::optional<Preface> preface_;
   std::unique_ptr<ImagePreprocessor> image_preprocessor_;
   std::unique_ptr<AudioPreprocessor> audio_preprocessor_;
 };

@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -23,17 +24,22 @@
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "nlohmann/json_fwd.hpp"  // from @nlohmann_json
+#include "runtime/components/prompt_template.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/generic_data_processor_config.h"
 #include "runtime/conversation/model_data_processor/model_data_processor.h"
+#include "runtime/engine/engine.h"
 #include "runtime/engine/io_types.h"
 #include "runtime/util/status_macros.h"
 
 namespace litert::lm {
 
 absl::StatusOr<std::unique_ptr<ModelDataProcessor>>
-GenericDataProcessor::Create(GenericDataProcessorConfig config) {
-  return absl::WrapUnique(new GenericDataProcessor(config));
+GenericDataProcessor::Create(std::unique_ptr<Engine::Session> session,
+                             PromptTemplate prompt_template, Preface preface,
+                             GenericDataProcessorConfig config) {
+  return absl::WrapUnique(new GenericDataProcessor(
+      std::move(session), prompt_template, preface, config));
 }
 
 absl::StatusOr<std::vector<InputData>>

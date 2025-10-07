@@ -2,8 +2,7 @@
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may
-// may obtain a copy of the License at
+// You may obtain a copy of the License at
 //
 //      http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -13,22 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "runtime/conversation/internal_callbacks_adapter.h"
+#include "runtime/conversation/model_data_processor/model_data_processor.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
 #include "absl/log/absl_log.h"  // from @com_google_absl
 #include "absl/status/status.h"  // from @com_google_absl
+#include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/match.h"  // from @com_google_absl
+#include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "absl/synchronization/mutex.h"  // from @com_google_absl
+#include "nlohmann/json_fwd.hpp"  // from @nlohmann_json
+#include "nlohmann/json.hpp"  // from @nlohmann_json
+#include "runtime/components/prompt_template.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/config_registry.h"
-#include "runtime/conversation/model_data_processor/model_data_processor.h"
 #include "runtime/engine/io_types.h"
+#include "runtime/util/status_macros.h"
 
 namespace litert::lm {
 namespace {
@@ -52,6 +59,141 @@ size_t SuffixPrefixOverlap(absl::string_view a, absl::string_view b) {
 }
 
 }  // namespace
+
+absl::StatusOr<std::string> ModelDataProcessor::GetSingleTurnText(
+    const Message& message) const {
+  PromptTemplateInput old_tmpl_input;
+  if (std::holds_alternative<JsonPreface>(preface_)) {
+    auto json_preface = std::get<JsonPreface>(preface_);
+
+    for (auto& message : json_preface.messages) {
+      ASSIGN_OR_RETURN(nlohmann::ordered_json message_tmpl_input,
+                       MessageToTemplateInput(message));
+      old_tmpl_input.messages.push_back(message_tmpl_input);
+    }
+
+    if (json_preface.tools.is_null()) {
+      old_tmpl_input.tools = nullptr;
+    } else {
+      ASSIGN_OR_RETURN(old_tmpl_input.tools, FormatTools(json_preface.tools));
+    }
+    old_tmpl_input.extra_context = json_preface.extra_context;
+  } else {
+    return absl::UnimplementedError("Preface type is not supported yet");
+  }
+  absl::MutexLock lock(&history_mutex_);  // NOLINT
+  for (const auto& history_msg : history_) {
+    if (std::holds_alternative<nlohmann::ordered_json>(history_msg)) {
+      ASSIGN_OR_RETURN(nlohmann::ordered_json message_tmpl_input,
+                       MessageToTemplateInput(
+                           std::get<nlohmann::ordered_json>(history_msg)));
+      old_tmpl_input.messages.push_back(message_tmpl_input);
+    } else {
+      return absl::UnimplementedError("Message type is not supported yet");
+    }
+  }
+
+  if (history_.empty()) {
+    PromptTemplateInput new_tmpl_input = std::move(old_tmpl_input);
+    if (std::holds_alternative<nlohmann::ordered_json>(message)) {
+      ASSIGN_OR_RETURN(
+          nlohmann::ordered_json message_tmpl_input,
+          MessageToTemplateInput(std::get<nlohmann::ordered_json>(message)));
+      new_tmpl_input.messages.push_back(message_tmpl_input);
+    } else {
+      return absl::UnimplementedError("Message type is not supported yet");
+    }
+    new_tmpl_input.add_generation_prompt = true;
+    return prompt_template_.Apply(new_tmpl_input);
+  }
+
+  old_tmpl_input.add_generation_prompt = false;
+  ASSIGN_OR_RETURN(const std::string old_string,
+                   prompt_template_.Apply(old_tmpl_input));
+
+  if (std::holds_alternative<nlohmann::ordered_json>(message)) {
+    PromptTemplateInput new_tmpl_input = std::move(old_tmpl_input);
+    ASSIGN_OR_RETURN(
+        nlohmann::ordered_json message_tmpl_input,
+        MessageToTemplateInput(std::get<nlohmann::ordered_json>(message)));
+    new_tmpl_input.messages.push_back(message_tmpl_input);
+    new_tmpl_input.add_generation_prompt = true;
+    ASSIGN_OR_RETURN(const std::string& new_string,
+                     prompt_template_.Apply(new_tmpl_input));
+    if (new_string.substr(0, old_string.size()) != old_string) {
+      return absl::InternalError(absl::StrCat(
+          "The new rendered template string does not start with the previous "
+          "rendered template string. \nold_string: ",
+          old_string, "\nnew_string: ", new_string));
+    }
+    return {new_string.substr(old_string.size(),
+                              new_string.size() - old_string.size())};
+  } else {
+    return absl::InvalidArgumentError("Json message is required for now.");
+  }
+}
+
+absl::StatusOr<Message> ModelDataProcessor::SendMessage(
+    const Message& message, std::optional<DataProcessorArguments> args) {
+  if (!std::holds_alternative<nlohmann::ordered_json>(message)) {
+    return absl::InvalidArgumentError("Json message is required for now.");
+  }
+
+  auto json_message = std::get<nlohmann::ordered_json>(message);
+  ASSIGN_OR_RETURN(const std::string& single_turn_text,
+                   GetSingleTurnText(message));
+  absl::MutexLock lock(&history_mutex_);  // NOLINT
+  history_.push_back(json_message);
+  ASSIGN_OR_RETURN(
+      const auto session_inputs,
+      ToInputDataVector(single_turn_text,
+                        nlohmann::ordered_json::array({json_message}),
+                        args.value_or(std::monostate())));
+  ASSIGN_OR_RETURN(const Responses& responses,
+                   session_->GenerateContent(session_inputs));
+  ASSIGN_OR_RETURN(const Message assistant_message,
+                   ToMessage(responses, args.value_or(std::monostate())));
+  history_.push_back(assistant_message);
+
+  return assistant_message;
+}
+
+absl::Status ModelDataProcessor::SendMessageStream(
+    const Message& message, std::unique_ptr<MessageCallbacks> callbacks,
+    std::optional<DataProcessorArguments> args) {
+  if (!std::holds_alternative<nlohmann::ordered_json>(message)) {
+    return absl::InvalidArgumentError("Json message is required for now.");
+  }
+  auto json_message = std::get<nlohmann::ordered_json>(message);
+  ASSIGN_OR_RETURN(const std::string& single_turn_text,
+                   GetSingleTurnText(message));
+  {
+    absl::MutexLock lock(&history_mutex_);  // NOLINT
+    history_.push_back(message);
+  }
+
+  ASSIGN_OR_RETURN(
+      const auto session_inputs,
+      ToInputDataVector(single_turn_text,
+                        nlohmann::ordered_json::array({json_message}),
+                        args.value_or(std::monostate())));
+
+  auto internal_callbacks_adapter = InternalCallbacksAdapter::Create(
+      this, std::move(callbacks), args.value_or(std::monostate()));
+
+  InternalCallbacksAdapter::CompleteMessageCallback complete_message_callback =
+      [this](const Message& complete_message) {
+        absl::MutexLock lock(&this->history_mutex_);  // NOLINT
+        this->history_.push_back(complete_message);
+      };
+  internal_callbacks_adapter->SetCompleteMessageCallback(
+      std::move(complete_message_callback));
+
+  RETURN_IF_ERROR(session_->RunPrefill(session_inputs));
+  RETURN_IF_ERROR(
+      session_->RunDecodeAsync(std::move(internal_callbacks_adapter)));
+  return absl::OkStatus();
+}
 
 std::unique_ptr<InternalCallbacksAdapter> InternalCallbacksAdapter::Create(
     ModelDataProcessor* model_data_processor,
