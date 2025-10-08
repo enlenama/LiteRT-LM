@@ -210,6 +210,20 @@ cc_test(
 )
 
 cc_library(
+    name = "image_preprocessor_factory",
+    srcs = ["image_preprocessor_factory.cc"],
+    hdrs = ["image_preprocessor_factory.h"],
+    deps = [":image_preprocessor"] + select({
+        ":enable_skia_image_preprocessor": [
+            ":skia_image_preprocessor",
+        ],
+        "//conditions:default": [
+            ":stb_image_preprocessor",
+        ],
+    }),
+)
+
+cc_library(
     name = "by_pass_audio_preprocessor",
     hdrs = ["by_pass_audio_preprocessor.h"],
     deps = [
@@ -322,6 +336,62 @@ cc_test(
     deps = [
         ":image_preprocessor",
         ":stb_image_preprocessor",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status",
+        "@litert//litert/c:litert_tensor_buffer_types",
+        "@litert//litert/cc:litert_layout",
+        "@litert//litert/cc:litert_tensor_buffer",
+        "//runtime/engine:io_types",
+        "//runtime/util:test_utils",
+    ],
+)
+
+config_setting(
+    name = "enable_skia_image_preprocessor",
+    values = {
+        "define": "enable_skia_image_preprocessor=true",
+    },
+)
+
+cc_library(
+    name = "skia_image_preprocessor",
+    srcs = ["skia_image_preprocessor.cc"],
+    hdrs = ["skia_image_preprocessor.h"],
+    defines = ["ENABLE_SKIA_IMAGE_PREPROCESSOR"],
+    deps = [
+        ":image_preprocessor",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "//runtime/engine:io_types",
+        "//runtime/util:convert_tensor_buffer",
+        "//runtime/util:litert_status_util",
+        "@skia//:bmp_decode_codec",
+        "@skia//:core",
+        "@skia//:jpeg_decode_codec",
+        "@skia//:png_decode_codec",
+    ] + select({
+        "@litert//litert:litert_link_capi_so": [
+            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+        ],
+        "//conditions:default": [
+            "@litert//litert/c:litert_tensor_buffer_types",
+            "@litert//litert/cc:litert_layout",
+            "@litert//litert/cc:litert_macros",
+            "@litert//litert/cc:litert_model",
+            "@litert//litert/cc:litert_tensor_buffer",
+        ],
+    }),
+)
+
+cc_test(
+    name = "skia_image_preprocessor_test",
+    srcs = ["skia_image_preprocessor_test.cc"],
+    data = ["//runtime/components/preprocessor/testdata"],
+    tags = ["requires-mac-inputs:hard"],  # Required for running on Forge on Mac.
+    deps = [
+        ":image_preprocessor",
+        ":skia_image_preprocessor",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:string_view",

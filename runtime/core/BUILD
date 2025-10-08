@@ -42,7 +42,7 @@ cc_library(
         "//runtime/components/preprocessor:audio_preprocessor",
         "//runtime/components/preprocessor:audio_preprocessor_miniaudio",
         "//runtime/components/preprocessor:image_preprocessor",
-        "//runtime/components/preprocessor:stb_image_preprocessor",
+        "//runtime/components/preprocessor:image_preprocessor_factory",
         "//runtime/engine:engine_interface",
         "//runtime/engine:engine_settings",
         "//runtime/engine:io_types",

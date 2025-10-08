@@ -375,6 +375,41 @@ http_archive(
     urls = ["https://github.com/antlr/antlr4/archive/bd8f9930d053ec6a83e7d751e8c6f69138957665.tar.gz"],
 )
 
+http_archive(
+    name = "skia",
+    sha256 = "2fe28173428f8eebf2aa8a665bad32136086cc065f50c7154678a96250d1cde1",
+    strip_prefix = "skia-226ae9d866748a2e68b6dbf114b37129c380a298",
+    urls = ["https://github.com/google/skia/archive/226ae9d866748a2e68b6dbf114b37129c380a298.zip"],
+)
+
+http_archive(
+    name = "skia_user_config",
+    sha256 = "2fe28173428f8eebf2aa8a665bad32136086cc065f50c7154678a96250d1cde1",
+    strip_prefix = "skia-226ae9d866748a2e68b6dbf114b37129c380a298/include/config",
+    urls = ["https://github.com/google/skia/archive/226ae9d866748a2e68b6dbf114b37129c380a298.zip"],
+)
+
+http_archive(
+   name = "libpng",
+   urls = ["https://github.com/glennrp/libpng/archive/ed217e3e.tar.gz"],
+   build_file = "@//:BUILD.libpng",
+   strip_prefix = "libpng-ed217e3e601d8e462f7fd1e04bed43ac42212429",
+)
+
+http_archive(
+   name = "libjpeg_turbo",
+   urls = ["https://github.com/libjpeg-turbo/libjpeg-turbo/archive/3041cf67ffd.tar.gz"],
+   build_file = "@//:BUILD.libjpeg_turbo",
+   strip_prefix = "libjpeg-turbo-e14cbfaa85529d47f9f55b0f104a579c1061f9ad",
+)
+
+http_archive(
+  name = "zlib",
+  urls = ["https://github.com/madler/zlib/archive/cacf7f1.tar.gz"],
+  build_file = "BUILD.zlib",
+  strip_prefix = "zlib-cacf7f1d4e3d44d871b605da3b647f07d718623f",
+)
+
 # Android rules. Need latest rules_android_ndk to use NDK 26+.
 load("@rules_android_ndk//:rules.bzl", "android_ndk_repository")
 

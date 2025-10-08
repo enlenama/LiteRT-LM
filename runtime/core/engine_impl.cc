@@ -32,7 +32,7 @@
 #include "runtime/components/preprocessor/audio_preprocessor.h"
 #include "runtime/components/preprocessor/audio_preprocessor_miniaudio.h"
 #include "runtime/components/preprocessor/image_preprocessor.h"
-#include "runtime/components/preprocessor/stb_image_preprocessor.h"
+#include "runtime/components/preprocessor/image_preprocessor_factory.h"
 #include "runtime/core/session_factory.h"
 #include "runtime/engine/engine.h"
 #include "runtime/engine/engine_settings.h"
@@ -246,7 +246,7 @@ absl::StatusOr<std::unique_ptr<Engine>> Engine::CreateEngine(
                                           vision_executor_settings));
     // Create the image preprocessor for processing the image input only if
     // vision executor is enabled.
-    image_preprocessor = std::make_unique<StbImagePreprocessor>();
+    image_preprocessor = ImagePreprocessorFactory::Create();
   }
 
   std::unique_ptr<AudioExecutor> audio_executor;
