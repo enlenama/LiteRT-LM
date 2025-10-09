@@ -38,20 +38,12 @@ namespace litert::lm {
 
 absl::Status EmbeddingLookupMultiModal::LookupDecode(
     int token, std::vector<float>& output_vector) {
-  // Multimodal lookup is not supported for single token case because decode
-  // does not use multimodal embedding lookup.
-  return absl::UnimplementedError(
-      "Multimodal embedding lookup is not supported for single token decode "
-      "case.");
+  return LookupPrefill(token, output_vector);
 }
 
 absl::Status EmbeddingLookupMultiModal::LookupDecode(
     int token, litert::TensorBuffer* output_tensor) {
-  // Multimodal lookup is not supported for single token case because decode
-  // does not use multimodal embedding lookup.
-  return absl::UnimplementedError(
-      "Multimodal embedding lookup is not supported for single token decode "
-      "case.");
+  return LookupPrefill({token}, output_tensor, 0);
 }
 
 absl::Status EmbeddingLookupMultiModal::LookupPrefill(
@@ -178,9 +170,10 @@ absl::Status EmbeddingLookupMultiModal::Initialize(
         "null.");
   }
   LITERT_ASSIGN_OR_RETURN_ABSL(
-      embedding_,
-      ::litert::lm::ReferTensorBufferAsSpan<float>(*embedding_buffer));
+      embedding_buffer_,
+      ::litert::lm::CopyFromTensorBuffer<float>(*embedding_buffer));
   special_token_ = special_token;
+  embedding_ = absl::MakeSpan(embedding_buffer_);
   return absl::OkStatus();
 }
 

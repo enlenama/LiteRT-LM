@@ -39,6 +39,16 @@
 
 namespace litert::lm {
 
+absl::Status EndOfMultiModalEmbedding::LookupDecode(
+    int token, std::vector<float>& output_vector) {
+  return LookupPrefill(token, output_vector);
+}
+
+absl::Status EndOfMultiModalEmbedding::LookupDecode(
+    int token, litert::TensorBuffer* output_tensor) {
+  return LookupPrefill({token}, output_tensor, 0);
+}
+
 absl::Status EndOfMultiModalEmbedding::LookupPrefill(
     int token, std::vector<float>& output_vector) {
   if (token != special_token_) {

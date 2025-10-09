@@ -245,23 +245,21 @@ TEST_F(EmbeddingLookupManagerTest, LookupDecodeTextSingleTokenVectorNonEmpty) {
 
 TEST_F(EmbeddingLookupManagerTest, LookupDecodeTextSingleNegativeTokenVector) {
   ASSERT_NE(embedding_lookup_manager_, nullptr);
-
+  ASSERT_OK(UpdateMultiModalEmbeddings());
   std::vector<float> output_vector;
   int32_t token = -1;
-  ASSERT_THAT(
-      embedding_lookup_manager_->LookupDecode(token, output_vector),
-      testing::status::StatusIs(
-          absl::StatusCode::kInvalidArgument,
-          testing::HasSubstr(
-              "Multimodal embeddings are not supported during decode")));
+  ASSERT_OK(embedding_lookup_manager_->LookupDecode(token, output_vector));
+  ASSERT_EQ(output_vector.size(), 128);
+  for (int i = 0; i < 128; i++) {
+    EXPECT_EQ(output_vector[i], 1.0 + i);
+  }
 
   token = -2;
-  ASSERT_THAT(
-      embedding_lookup_manager_->LookupDecode(token, output_vector),
-      testing::status::StatusIs(
-          absl::StatusCode::kInvalidArgument,
-          testing::HasSubstr(
-              "Multimodal embeddings are not supported during decode")));
+  ASSERT_OK(embedding_lookup_manager_->LookupDecode(token, output_vector));
+  ASSERT_EQ(output_vector.size(), 128);
+  for (int i = 0; i < 128; i++) {
+    EXPECT_EQ(output_vector[i], 257.0 + i);
+  }
 }
 
 TEST_F(EmbeddingLookupManagerTest, LookupDecodeTextSingleToken) {

@@ -115,29 +115,15 @@ absl::Status EmbeddingLookupManager::LookupDecode(
   }
   const size_t floats_per_token = text_embedding_lookup_->GetFloatsPerToken();
   output_vector.resize(floats_per_token);
-
-  if (token < 0) {
-    return absl::InvalidArgumentError(
-        "Multimodal embeddings are not supported during decode.");
-  }
-
-  return text_embedding_lookup_->LookupDecode(token, output_vector);
+  return LookupPrefill(token, output_vector);
 }
 
 absl::Status EmbeddingLookupManager::LookupDecode(
     int token, litert::TensorBuffer* output_tensor) {
-  if (text_embedding_lookup_ == nullptr) {
-    return absl::InternalError(
-        "Text embedding lookup is null. Please ensure that the "
-        "EmbeddingLookupManager is initialized properly.");
+  if (output_tensor == nullptr) {
+    return absl::InvalidArgumentError("Decode output tensor buffer is null.");
   }
-
-  if (token < 0) {
-    return absl::InvalidArgumentError(
-        "Multimodal embeddings are not supported during decode.");
-  }
-
-  return text_embedding_lookup_->LookupDecode(token, output_tensor);
+  return LookupPrefill({token}, output_tensor, /*byte_offset=*/0);
 }
 
 absl::Status EmbeddingLookupManager::LookupPrefill(
@@ -165,6 +151,11 @@ absl::Status EmbeddingLookupManager::LookupPrefill(
     memcpy(output_vector.data(), default_embedding_vector_.data(),
            default_embedding_vector_.size() * sizeof(float));
   }
+  // Remove fully used multi modal embedding lookups.
+  std::erase_if(multi_modal_embedding_lookups_,
+                [](const auto& embedding_lookup) {
+                  return !embedding_lookup->HasRemainingEmbeddings();
+                });
   return absl::OkStatus();
 }
 

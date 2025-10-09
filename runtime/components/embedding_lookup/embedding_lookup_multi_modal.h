@@ -94,7 +94,7 @@ class EmbeddingLookupMultiModal : public EmbeddingLookup {
  protected:
   absl::Status Initialize(const ::litert::TensorBuffer* embedding_buffer,
                           int special_token);
-
+  std::vector<float> embedding_buffer_;
   absl::Span<float> embedding_;
   int special_token_;
 };

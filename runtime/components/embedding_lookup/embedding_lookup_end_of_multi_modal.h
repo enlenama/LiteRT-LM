@@ -47,19 +47,15 @@ class EndOfMultiModalEmbedding : public EmbeddingLookup {
   static absl::StatusOr<std::unique_ptr<EndOfMultiModalEmbedding>> Create(
       const litert::Model* absl_nonnull model, int special_token);
 
-  // Multimodal embeddings are not supported during decode.
+  // For a given token, looks up the end of multi-modal embedding and stores it
+  // in the provided vector.
   absl::Status LookupDecode(int token,
-                            std::vector<float>& output_vector) override {
-    return absl::UnimplementedError(
-        "LookupDecode is not implemented for EndOfMultiModalEmbedding.");
-  }
+                            std::vector<float>& output_vector) override;
 
-  // Multimodal embeddings are not supported during decode.
+  // For a given token, looks up the end of multi-modal embedding and stores it
+  // in the output tensor.
   absl::Status LookupDecode(int token,
-                            litert::TensorBuffer* output_tensor) override {
-    return absl::UnimplementedError(
-        "LookupDecode is not implemented for EndOfMultiModalEmbedding.");
-  }
+                            litert::TensorBuffer* output_tensor) override;
 
   // If the token is the special token, looks up the end of multimodal
   // embedding and stores it in the provided vector.

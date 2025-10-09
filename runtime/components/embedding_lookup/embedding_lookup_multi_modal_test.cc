@@ -516,12 +516,14 @@ TEST_F(EmbeddingLookupMultiModalTest, LookupDecode) {
   LITERT_ASSERT_OK_AND_ASSIGN(litert::TensorBuffer output_tensor,
                               GetTensorBuffer(dimensions));
   int token = special_token_;
-  ASSERT_THAT(
-      embedding->LookupDecode(token, &output_tensor),
-      testing::status::StatusIs(
-          absl::StatusCode::kUnimplemented,
-          testing::HasSubstr("Multimodal embedding lookup is not supported for "
-                             "single token decode case.")));
+  ASSERT_OK(embedding->LookupDecode(token, &output_tensor));
+  auto output_tensor_lock_and_addr = ::litert::TensorBufferScopedLock::Create(
+      output_tensor, ::litert::TensorBuffer::LockMode::kRead);
+  auto output_tensor_ptr =
+      reinterpret_cast<float*>(output_tensor_lock_and_addr->second);
+  // 2 * 3 = 6 floats per token.
+  EXPECT_THAT(absl::MakeSpan(output_tensor_ptr, 6),
+              testing::ElementsAre(1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
 }
 
 TEST_F(EmbeddingLookupMultiModalTest, LookupDecodeVectorNoSpecialToken) {
@@ -531,12 +533,8 @@ TEST_F(EmbeddingLookupMultiModalTest, LookupDecodeVectorNoSpecialToken) {
 
   std::vector<float> output_vector(2 * 3);
   int token = 1;
-  ASSERT_THAT(
-      embedding->LookupDecode(token, output_vector),
-      testing::status::StatusIs(
-          absl::StatusCode::kUnimplemented,
-          testing::HasSubstr("Multimodal embedding lookup is not supported for "
-                             "single token decode case.")));
+  ASSERT_OK(embedding->LookupDecode(token, output_vector));
+  EXPECT_THAT(output_vector, testing::Each(testing::FloatEq(0.0)));
 }
 
 TEST_F(EmbeddingLookupMultiModalTest, LookupDecodeVectorSpecialToken) {
@@ -546,12 +544,10 @@ TEST_F(EmbeddingLookupMultiModalTest, LookupDecodeVectorSpecialToken) {
 
   std::vector<float> output_vector(2 * 3);
   int token = special_token_;
-  ASSERT_THAT(
-      embedding->LookupDecode(token, output_vector),
-      testing::status::StatusIs(
-          absl::StatusCode::kUnimplemented,
-          testing::HasSubstr("Multimodal embedding lookup is not supported for "
-                             "single token decode case.")));
+  ASSERT_OK(embedding->LookupDecode(token, output_vector));
+  // 2 * 3 = 6 floats per token.
+  EXPECT_THAT(output_vector,
+              testing::ElementsAre(1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
 }
 
 }  // namespace litert::lm

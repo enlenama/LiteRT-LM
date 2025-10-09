@@ -108,19 +108,41 @@ class EndOfMultiModalEmbeddingTest : public testing::Test {
   std::optional<Model> model_;
 };
 
+TEST_F(EndOfMultiModalEmbeddingTest, LookupDecodeVectorBadOutputVector) {
+  std::unique_ptr<EndOfMultiModalEmbedding> embedding =
+      GetEndOfMultiModalEmbedding();
+  ASSERT_NE(embedding, nullptr);
+
+  std::vector<float> output_vector(4 * 32 + 1);
+
+  int32_t token = -3;
+  ASSERT_THAT(embedding->LookupDecode(token, output_vector),
+              testing::status::StatusIs(
+                  absl::StatusCode::kInvalidArgument,
+                  testing::HasSubstr("The output vector is not the correct "
+                                     "size for the end of multi-modal")));
+}
+
 TEST_F(EndOfMultiModalEmbeddingTest, LookupDecodeVector) {
   std::unique_ptr<EndOfMultiModalEmbedding> embedding =
       GetEndOfMultiModalEmbedding();
   ASSERT_NE(embedding, nullptr);
 
-  std::vector<float> output_vector(4 * 32);
+  std::vector<float> output_vector(128);
 
   int32_t token = -3;
-  ASSERT_THAT(embedding->LookupDecode(token, output_vector),
-              testing::status::StatusIs(
-                  absl::StatusCode::kUnimplemented,
-                  testing::HasSubstr("LookupDecode is not implemented for "
-                                     "EndOfMultiModalEmbedding.")));
+  ASSERT_OK(embedding->LookupDecode(token, output_vector));
+
+  size_t offset = 0;
+  // Dimensions 0 and 1 both have size 1.
+  for (int idx2 = 0; idx2 < 4; ++idx2) {
+    for (int idx3 = 0; idx3 < 32; ++idx3) {
+      // Dimensions 0 and 1 both have size 1 so offset and expected value can
+      // ignore them.
+      float expected_value = (100.0 * idx2 + idx3) * 2;
+      ASSERT_NEAR(output_vector[offset++], expected_value, 1e-5);
+    }
+  }
 }
 
 TEST_F(EndOfMultiModalEmbeddingTest, LookupDecode) {
@@ -133,12 +155,23 @@ TEST_F(EndOfMultiModalEmbeddingTest, LookupDecode) {
                               GetTensorBuffer(dimensions));
 
   int32_t token = -3;
-  ASSERT_THAT(
-      embedding->LookupDecode(token, &output_tensor),
-      testing::status::StatusIs(
-          absl::StatusCode::kUnimplemented,
-          testing::HasSubstr(
-              "LookupDecode is not implemented for EndOfMultiModalEmbedding")));
+  ASSERT_OK(embedding->LookupDecode(token, &output_tensor));
+
+  auto output_tensor_lock_and_addr = ::litert::TensorBufferScopedLock::Create(
+      output_tensor, ::litert::TensorBuffer::LockMode::kRead);
+  auto output_tensor_ptr =
+      reinterpret_cast<float*>(output_tensor_lock_and_addr->second);
+
+  float expected_value = 0.0;
+  for (int idx2 = 0; idx2 < dimensions[2]; ++idx2) {
+    for (int idx3 = 0; idx3 < dimensions[3]; ++idx3) {
+      // Since dimension 1 is of size 1, the offset and expected value can
+      // ignore it.
+      size_t offset = idx2 * dimensions[3] + idx3;
+      expected_value = (100.0 * idx2 + idx3) * 2;
+      ASSERT_NEAR(output_tensor_ptr[offset], expected_value, 1e-5);
+    }
+  }
 }
 
 TEST_F(EndOfMultiModalEmbeddingTest, LookupPrefillVector) {
