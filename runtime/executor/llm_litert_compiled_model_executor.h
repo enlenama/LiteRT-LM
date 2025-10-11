@@ -154,6 +154,9 @@ class LlmLiteRtCompiledModelExecutor : public LlmExecutor {
         logits_data_type_(logits_data_type) {}
 
  private:
+  // Swaps the input tensors to the sampler.
+  absl::Status SwapSamplerInputTensors();
+
   // Samples output logits and write to ids_tensor.
   absl::Status SampleLogits(const TensorBuffer& logits,
                             TensorBuffer& ids_tensor);
@@ -170,7 +173,14 @@ class LlmLiteRtCompiledModelExecutor : public LlmExecutor {
   absl::Status DecodeInternal(int step, std::shared_ptr<TokenData> token,
                               TensorBuffer& output_logits);
 
-  // Create Prefill input buffers for a given signature.
+  // Helper function of DecodeInternal to bind input/output tensors for decode
+  // and run decode signature.
+  absl::Status BindTensorsAndRunDecode(TensorBuffer* output_logits = nullptr);
+  // Static version of BindTensorsAndRunDecode to be used as a callback for
+  // sampler.
+  static int BindTensorsAndRunDecodeStatic(void* arg);
+
+  // Creates Prefill input buffers for a given signature.
   absl::Status CreatePrefillInputBuffers(absl::string_view prefill_signature);
 
   // Fills the input buffer from the unprocessed token.
@@ -233,6 +243,10 @@ class LlmLiteRtCompiledModelExecutor : public LlmExecutor {
   // Sampler for sampling logits.
   // For now, only CPU sampler is supported.
   std::unique_ptr<Sampler> sampler_;
+  // Extra input tensors to swap for decode when sampler handles input tensors.
+  ::litert::TensorBuffer decode_prev_input_pos_;
+  ::litert::TensorBuffer decode_prev_mask_;
+  bool first_decode_after_prefill_ = true;
 
   // Internal timestep.
   int current_step_ = 0;

@@ -21,19 +21,48 @@
 namespace litert::lm {
 
 // A sampler that samples token ids from logits.
+// Optionally, it may be able to handle input tensors. If so, the sampler can
+// fill input tensors by itself, e.g. input tokens from output tokens, input
+// positions with one-incremented from the previous step, then, runs inference
+// for the next step. If the backend is an independent processing unit like GPU,
+// the inference is being done asynchronously while the sampler returns the
+// sample ID for the previous step.
 class Sampler {
  public:
   virtual ~Sampler() = default;
 
   // Given a batch of logits, samples a batch of token ids.
   // The expected shape of the logits is [batch_size, vocab_size].
-  // The output is a 1D litert::TensorBuffer of shape [batch_size].
+  // The output is a 1D `litert::TensorBuffer` of shape [batch_size].
   // The scores_tensor is optional. If it is not nullptr, the sampled scores are
   // also written to it (in the same shape as the ids_tensor). The scores are
   // the log of the probability of the sampled token.
   virtual absl::Status SampleToIdAndScoreBuffer(
       const TensorBuffer& logits_tensor, TensorBuffer& ids_tensor,
       TensorBuffer* scores_tensor) = 0;
+
+  // Whether the sampler can handle inputs as well. If true, the sampler can
+  // fill input tensors by itself, e.g. input tokens from output tokens,
+  // input positions with one-incremented from the previous step, etc.
+  virtual bool CanHandleInput() const { return false; }
+
+  // Whether the sampler handles the input. It can be true only when
+  // `CanHandleInput()` is true. It can be false when `CanHandleInput()` is true
+  // if the sampler doesn't handle the input now despite it can.
+  virtual bool HandlesInput() const { return false; }
+
+  // Sets input tensors to handle inputs and `run_inference_func` with `arg`.
+  // `run_inference_func` is called within `SampleToIdAndScoreBuffer()` to run
+  // inference with the given input tensors before it returns.
+  // It returns `UnimplementedError` if `CanHandleInput()` is false.
+  virtual absl::Status SetInputTensorsAndInferenceFunc(
+      const TensorBuffer& ids_tensor,
+      const TensorBuffer& prev_input_positions_tensor,
+      const TensorBuffer& input_positions_tensor,
+      const TensorBuffer* prev_mask_tensor, const TensorBuffer* mask_tensor,
+      int (*run_inference_func)(void* arg), void* arg) {
+    return absl::UnimplementedError("SetInputTensors is not implemented.");
+  }
 };
 
 }  // namespace litert::lm
