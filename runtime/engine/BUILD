@@ -172,6 +172,17 @@ cc_binary(
     ],
 )
 
+genrule(
+    name = "litert_lm_main_windows",
+    srcs = [
+        ":litert_lm_main",
+    ],
+    outs = [
+        "litert_lm_main.exe",
+    ],
+    cmd = "cp $< $@",
+)
+
 cc_library(
     name = "engine_settings",
     srcs = ["engine_settings.cc"],
