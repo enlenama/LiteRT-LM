@@ -33,7 +33,9 @@
 #include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "litert/cc/litert_layout.h"  // from @litert
+#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "runtime/components/sampler.h"
 #include "runtime/components/sampler_factory.h"
 #include "runtime/components/stop_token_detector.h"
@@ -110,7 +112,7 @@ absl::StatusOr<T> CombineExecutorDataImpl(std::vector<T>& executor_data) {
 
   LITERT_ASSIGN_OR_RETURN_ABSL(
       auto combined_tensor_buffer,
-      TensorBuffer::CreateManaged(kLiteRtTensorBufferTypeHostMemory,
+      TensorBuffer::CreateManaged(TensorBufferType::HostMemory,
                                   combined_tensor_type, total_packed_size));
   LITERT_ASSIGN_OR_RETURN_ABSL(
       auto combined_embeddings_lock_and_addr,

@@ -65,7 +65,8 @@ TEST(LoggingTest, LogVariant) {
 TEST(LoggingTest, LogTensorBuffer_None) {
   std::stringstream oss;
   oss << ::litert::TensorBuffer();
-  EXPECT_EQ(oss.str(), "TensorBuffer: [tensor in non-host memory type=0]");
+  EXPECT_EQ(oss.str(),
+            "TensorBuffer: [tensor in non-host memory type=Unknown]");
 }
 
 TEST(LoggingTest, LogTensorBuffer_Vector) {

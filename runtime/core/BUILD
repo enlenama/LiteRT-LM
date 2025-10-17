@@ -210,7 +210,9 @@ cc_library(
         ],
         "//conditions:default": [
             "@litert//litert/cc:litert_model",
+            "@litert//litert/cc:litert_ranked_tensor_type",
             "@litert//litert/cc:litert_tensor_buffer",
+            "@litert//litert/cc:litert_tensor_buffer_types",
         ],
     }),
 )

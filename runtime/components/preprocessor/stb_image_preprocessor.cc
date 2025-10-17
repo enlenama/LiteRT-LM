@@ -26,8 +26,9 @@
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "litert/cc/litert_layout.h"  // from @litert
 #include "litert/cc/litert_macros.h"  // from @litert
-#include "litert/cc/litert_model.h"  // from @litert
+#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "runtime/components/preprocessor/image_preprocessor.h"
 #include "runtime/engine/io_types.h"
 #include "runtime/util/litert_status_util.h"
@@ -105,7 +106,7 @@ absl::StatusOr<InputImage> StbImagePreprocessor::Preprocess(
   LITERT_ASSIGN_OR_RETURN_ABSL(
       auto processed_tensor_buffer,
       ::litert::TensorBuffer::CreateManaged(
-          kLiteRtTensorBufferTypeHostMemory,
+          TensorBufferType::HostMemory,
           MakeRankedTensorType<float>(
               {batch_size, target_height, target_width, target_channels}),
           buffer_size));

@@ -30,13 +30,13 @@
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
 #include "litert/cc/litert_macros.h"  // from @litert
-#include "litert/cc/litert_model.h"  // from @litert
+#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "runtime/executor/audio_executor_settings.h"
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"  //NOLINT
-#include "runtime/util/test_utils.h"     //NOLINT
 
 namespace litert::lm {
 namespace {
@@ -65,7 +65,7 @@ absl::StatusOr<TensorBuffer> CreateTensorBuffer(
     absl::Span<T> data, RankedTensorType ranked_tensor_type) {
   LITERT_ASSIGN_OR_RETURN(
       auto output,
-      TensorBuffer::CreateManaged(kLiteRtTensorBufferTypeHostMemory,
+      TensorBuffer::CreateManaged(TensorBufferType::HostMemory,
                                   ranked_tensor_type, data.size() * sizeof(T)));
   LITERT_RETURN_IF_ERROR(output.template Write<T>(absl::MakeSpan(data)));
   return output;
