@@ -182,7 +182,6 @@ cc_library(
         "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
-        "@litert//litert/c:litert_tensor_buffer_types",
         "@litert//litert/cc:litert_layout",
         "@litert//litert/cc:litert_macros",
         "//runtime/components:sampler",
@@ -211,7 +210,9 @@ cc_library(
         ],
         "//conditions:default": [
             "@litert//litert/cc:litert_model",
+            "@litert//litert/cc:litert_ranked_tensor_type",
             "@litert//litert/cc:litert_tensor_buffer",
+            "@litert//litert/cc:litert_tensor_buffer_types",
         ],
     }),
 )

@@ -29,11 +29,12 @@
 #include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
-#include "litert/c/litert_tensor_buffer_types.h"  // from @litert
 #include "litert/cc/litert_element_type.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
 #include "litert/cc/litert_macros.h"  // from @litert
+#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "runtime/components/preprocessor/audio_preprocessor.h"
 #include "runtime/components/preprocessor/mel_filterbank.h"
 #include "runtime/engine/io_types.h"
@@ -259,7 +260,7 @@ absl::StatusOr<InputAudio> AudioPreprocessorMiniAudio::Preprocess(
       Layout(Dimensions({1, num_frames, config_.GetNumMelBins()})));
   LITERT_ASSIGN_OR_RETURN(
       auto mel_spectrograms_tensor,
-      TensorBuffer::CreateManaged(nullptr, kLiteRtTensorBufferTypeHostMemory,
+      TensorBuffer::CreateManaged(nullptr, TensorBufferType::HostMemory,
                                   mel_tensor_type,
                                   log_mel_spectrograms.size() * sizeof(float)));
   LITERT_RETURN_IF_ERROR(mel_spectrograms_tensor.Write<float>(

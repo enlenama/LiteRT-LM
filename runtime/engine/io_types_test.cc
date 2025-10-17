@@ -27,16 +27,14 @@
 #include "absl/time/clock.h"  // from @com_google_absl
 #include "absl/time/time.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
-#include "litert/c/litert_model.h"  // from @litert
-#include "litert/c/litert_tensor_buffer_types.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
-#include "litert/cc/litert_model.h"  // from @litert
+#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "litert/test/matchers.h"  // from @litert
 #include "runtime/components/constrained_decoding/fake_constraint.h"
 #include "runtime/util/convert_tensor_buffer.h"
-#include "runtime/util/test_utils.h"  // NOLINT
 
 namespace litert::lm {
 namespace {
@@ -74,7 +72,7 @@ TEST(InputTextTest, GetPreprocessedTextTensor) {
   // Create a tensor buffer with kTensorData.
   LITERT_ASSERT_OK_AND_ASSIGN(auto env, litert::Environment::Create({}));
   const RankedTensorType kTensorType(kTestTensorType);
-  constexpr auto kTensorBufferType = kLiteRtTensorBufferTypeHostMemory;
+  constexpr auto kTensorBufferType = TensorBufferType::HostMemory;
   const size_t kTensorSize = sizeof(kTensorData);
 
   LITERT_ASSERT_OK_AND_ASSIGN(
@@ -129,7 +127,7 @@ TEST(InputImageTest, GetPreprocessedImageTensor) {
   // Create a tensor buffer with kTensorData.
   LITERT_ASSERT_OK_AND_ASSIGN(auto env, litert::Environment::Create({}));
   const RankedTensorType kTensorType(kTestTensorType);
-  constexpr auto kTensorBufferType = kLiteRtTensorBufferTypeHostMemory;
+  constexpr auto kTensorBufferType = TensorBufferType::HostMemory;
   const size_t kTensorSize = sizeof(kTensorData);
 
   LITERT_ASSERT_OK_AND_ASSIGN(
@@ -180,7 +178,7 @@ TEST(InputAudioTest, GetPreprocessedAudioTensor) {
   // Create a tensor buffer with kTensorData.
   LITERT_ASSERT_OK_AND_ASSIGN(auto env, litert::Environment::Create({}));
   const RankedTensorType kTensorType(kTestTensorType);
-  constexpr auto kTensorBufferType = kLiteRtTensorBufferTypeHostMemory;
+  constexpr auto kTensorBufferType = TensorBufferType::HostMemory;
   const size_t kTensorSize = sizeof(kTensorData);
 
   LITERT_ASSERT_OK_AND_ASSIGN(
@@ -234,7 +232,7 @@ TEST(InputTextTest, CreateCopyFromString) {
 TEST(InputTextTest, CreateCopyFromTensorBuffer) {
   LITERT_ASSERT_OK_AND_ASSIGN(auto env, litert::Environment::Create({}));
   const RankedTensorType kTensorType(kTestTensorType);
-  constexpr auto kTensorBufferType = kLiteRtTensorBufferTypeHostMemory;
+  constexpr auto kTensorBufferType = TensorBufferType::HostMemory;
   const size_t kTensorSize = sizeof(kTensorData);
 
   LITERT_ASSERT_OK_AND_ASSIGN(
@@ -273,7 +271,7 @@ TEST(InputImageTest, CreateCopyFromString) {
 TEST(InputImageTest, CreateCopyFromTensorBuffer) {
   LITERT_ASSERT_OK_AND_ASSIGN(auto env, litert::Environment::Create({}));
   const RankedTensorType kTensorType(kTestTensorType);
-  constexpr auto kTensorBufferType = kLiteRtTensorBufferTypeHostMemory;
+  constexpr auto kTensorBufferType = TensorBufferType::HostMemory;
   const size_t kTensorSize = sizeof(kTensorData);
 
   LITERT_ASSERT_OK_AND_ASSIGN(
@@ -312,7 +310,7 @@ TEST(InputAudioTest, CreateCopyFromString) {
 TEST(InputAudioTest, CreateCopyFromTensorBuffer) {
   LITERT_ASSERT_OK_AND_ASSIGN(auto env, litert::Environment::Create({}));
   const RankedTensorType kTensorType(kTestTensorType);
-  constexpr auto kTensorBufferType = kLiteRtTensorBufferTypeHostMemory;
+  constexpr auto kTensorBufferType = TensorBufferType::HostMemory;
   const size_t kTensorSize = sizeof(kTensorData);
 
   LITERT_ASSERT_OK_AND_ASSIGN(
@@ -348,7 +346,7 @@ TEST(CreateInputDataCopyTest, InputText) {
 
   LITERT_ASSERT_OK_AND_ASSIGN(auto env, litert::Environment::Create({}));
   const RankedTensorType kTensorType(kTestTensorType);
-  constexpr auto kTensorBufferType = kLiteRtTensorBufferTypeHostMemory;
+  constexpr auto kTensorBufferType = TensorBufferType::HostMemory;
   const size_t kTensorSize = sizeof(kTensorData);
   LITERT_ASSERT_OK_AND_ASSIGN(
       TensorBuffer original_tensor_buffer,
@@ -370,7 +368,7 @@ TEST(CreateInputDataCopyTest, InputImage) {
 
   LITERT_ASSERT_OK_AND_ASSIGN(auto env, litert::Environment::Create({}));
   const RankedTensorType kTensorType(kTestTensorType);
-  constexpr auto kTensorBufferType = kLiteRtTensorBufferTypeHostMemory;
+  constexpr auto kTensorBufferType = TensorBufferType::HostMemory;
   const size_t kTensorSize = sizeof(kTensorData);
   LITERT_ASSERT_OK_AND_ASSIGN(
       TensorBuffer original_tensor_buffer,
@@ -392,7 +390,7 @@ TEST(CreateInputDataCopyTest, InputAudio) {
 
   LITERT_ASSERT_OK_AND_ASSIGN(auto env, litert::Environment::Create({}));
   const RankedTensorType kTensorType(kTestTensorType);
-  constexpr auto kTensorBufferType = kLiteRtTensorBufferTypeHostMemory;
+  constexpr auto kTensorBufferType = TensorBufferType::HostMemory;
   const size_t kTensorSize = sizeof(kTensorData);
   LITERT_ASSERT_OK_AND_ASSIGN(
       TensorBuffer original_tensor_buffer,

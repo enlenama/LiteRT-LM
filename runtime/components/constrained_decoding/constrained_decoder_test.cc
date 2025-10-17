@@ -27,13 +27,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
-#include "litert/c/litert_model_types.h"  // from @litert
-#include "litert/c/litert_tensor_buffer_types.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/cc/litert_expected.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
-#include "litert/cc/litert_model.h"  // from @litert
+#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "litert/test/matchers.h"  // from @litert
 #include "runtime/components/constrained_decoding/constraint_provider.h"
 #include "runtime/components/constrained_decoding/fst_constraint_provider.h"
@@ -83,7 +82,7 @@ Expected<TensorBuffer> CreateTokenIdsTensorBuffer(const Environment& env,
       std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<int>()) *
       sizeof(data[0]);
   auto tokens_id_tensor_buffer =
-      TensorBuffer::CreateManaged(env.Get(), kLiteRtTensorBufferTypeHostMemory,
+      TensorBuffer::CreateManaged(env.Get(), TensorBufferType::HostMemory,
                                   tokens_id_tensor_type, buffer_size);
   if (!tokens_id_tensor_buffer.HasValue()) {
     return tokens_id_tensor_buffer;

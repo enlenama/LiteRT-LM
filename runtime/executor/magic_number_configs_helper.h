@@ -19,7 +19,6 @@
 #include <memory>
 #include <vector>
 
-#include "litert/c/litert_environment_options.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "runtime/components/model_resources.h"
 #include "runtime/executor/llm_executor_settings.h"

@@ -25,7 +25,6 @@
 #include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
-#include "litert/c/litert_common.h"  // from @litert
 #include "litert/c/options/litert_qualcomm_options.h"  // from @litert
 #include "litert/cc/litert_compiled_model.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
@@ -43,7 +42,6 @@
 #include "runtime/executor/llm_executor_io_types.h"
 #include "runtime/executor/vision_executor_settings.h"
 #include "runtime/util/convert_tensor_buffer.h"
-#include "runtime/util/litert_status_util.h"
 #include "runtime/util/status_macros.h"  // NOLINT
 
 namespace litert::lm {
@@ -64,12 +62,12 @@ absl::Status VisionLiteRtCompiledModelExecutor::VisionEncoder::Initialize() {
   switch (backend_) {
     case Backend::CPU: {
       // TODO: b/403132820 - Add accelerator compilation options for XNNPACK.
-      LITERT_ASSIGN_OR_RETURN_ABSL(auto cpu_compilation_options,
+      LITERT_ASSIGN_OR_RETURN(auto cpu_compilation_options,
                                    CpuOptions::Create());
       // Set the number of threads to 4 by default.
       cpu_compilation_options.SetNumThreads(4);
 
-      LITERT_ASSIGN_OR_RETURN_ABSL(RuntimeOptions runtime_options,
+      LITERT_ASSIGN_OR_RETURN(RuntimeOptions runtime_options,
                                    RuntimeOptions::Create());
       runtime_options.SetShloCompositeInlining(true);
       options.AddOpaqueOptions(std::move(runtime_options));
@@ -79,7 +77,7 @@ absl::Status VisionLiteRtCompiledModelExecutor::VisionEncoder::Initialize() {
     }
     case Backend::GPU: {
       // TODO: b/403132820 - Add accelerator compilation options for ML_DRIFT.
-      LITERT_ASSIGN_OR_RETURN_ABSL(GpuOptions gpu_compilation_options,
+      LITERT_ASSIGN_OR_RETURN(GpuOptions gpu_compilation_options,
                                    GpuOptions::Create());
       // TODO --- ask fengwu about this
       gpu_compilation_options.EnableConstantTensorSharing(true);
@@ -92,7 +90,7 @@ absl::Status VisionLiteRtCompiledModelExecutor::VisionEncoder::Initialize() {
       break;
     }
     case Backend::NPU: {
-      LITERT_ASSIGN_OR_RETURN_ABSL(auto qualcomm_options,
+      LITERT_ASSIGN_OR_RETURN(auto qualcomm_options,
                                    qualcomm::QualcommOptions::Create());
       qualcomm_options.SetLogLevel(kLiteRtQualcommLogOff);
       qualcomm_options.SetHtpPerformanceMode(
@@ -145,12 +143,12 @@ absl::Status VisionLiteRtCompiledModelExecutor::VisionAdapter::Initialize() {
   switch (backend_) {
     case Backend::CPU: {
       // TODO: b/403132820 - Add accelerator compilation options for XNNPACK.
-      LITERT_ASSIGN_OR_RETURN_ABSL(auto cpu_compilation_options,
+      LITERT_ASSIGN_OR_RETURN(auto cpu_compilation_options,
                                    CpuOptions::Create());
       // Set the number of threads to 4 by default.
       cpu_compilation_options.SetNumThreads(4);
 
-      LITERT_ASSIGN_OR_RETURN_ABSL(RuntimeOptions runtime_options,
+      LITERT_ASSIGN_OR_RETURN(RuntimeOptions runtime_options,
                                    RuntimeOptions::Create());
       runtime_options.SetShloCompositeInlining(true);
       options.AddOpaqueOptions(std::move(runtime_options));
@@ -160,7 +158,7 @@ absl::Status VisionLiteRtCompiledModelExecutor::VisionAdapter::Initialize() {
     }
     case Backend::GPU: {
       // TODO: b/403132820 - Add accelerator compilation options for ML_DRIFT.
-      LITERT_ASSIGN_OR_RETURN_ABSL(GpuOptions gpu_compilation_options,
+      LITERT_ASSIGN_OR_RETURN(GpuOptions gpu_compilation_options,
                                    GpuOptions::Create());
       // TODO --- ask fengwu about this
       gpu_compilation_options.EnableConstantTensorSharing(true);
@@ -217,7 +215,7 @@ litert::lm::VisionLiteRtCompiledModelExecutor::Create(
       VisionAdapter::Create(env, vision_adapter_model,
                             vision_executor_settings.GetAdapterBackend()));
 
-  LITERT_ASSIGN_OR_RETURN_ABSL(auto tensor_type,
+  LITERT_ASSIGN_OR_RETURN(auto tensor_type,
                                vision_encoder_model->GetInputTensorType(0, 0));
   const auto& dimensions = tensor_type.Layout().Dimensions();
   if (dimensions.size() != 4) {
@@ -242,7 +240,7 @@ litert::lm::VisionLiteRtCompiledModelExecutor::Create(
 
 absl::StatusOr<ExecutorVisionData> VisionLiteRtCompiledModelExecutor::Encode(
     const litert::TensorBuffer& input_image_tensor) {
-  LITERT_ASSIGN_OR_RETURN_ABSL(auto input_image_tensor_ref,
+  LITERT_ASSIGN_OR_RETURN(auto input_image_tensor_ref,
                                input_image_tensor.Duplicate());
   LITERT_ASSIGN_OR_RETURN(
       auto output_tensor_buffers,

@@ -28,14 +28,15 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
-#include "litert/c/litert_tensor_buffer_types.h"  // from @litert
 #include "litert/cc/litert_element_type.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/cc/litert_expected.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
 #include "litert/cc/litert_macros.h"  // from @litert
 #include "litert/cc/litert_model.h"  // from @litert
+#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "litert/test/matchers.h"  // from @litert
 
 #ifndef EXPECT_OK
@@ -91,8 +92,7 @@ class EmbeddingLookupTextTest : public testing::Test {
     RankedTensorType ranked_tensor_type(ElementType::Float32,
                                         std::move(layout));
 
-    return TensorBuffer::CreateManaged(env.Get(),
-                                       kLiteRtTensorBufferTypeHostMemory,
+    return TensorBuffer::CreateManaged(env.Get(), TensorBufferType::HostMemory,
                                        ranked_tensor_type, buffer_size);
   }
 

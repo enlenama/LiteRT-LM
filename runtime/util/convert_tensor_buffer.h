@@ -22,13 +22,13 @@
 
 #include "absl/log/absl_check.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
-#include "litert/c/litert_common.h"  // from @litert
 #include "litert/cc/litert_element_type.h"  // from @litert
 #include "litert/cc/litert_expected.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
 #include "litert/cc/litert_macros.h"  // from @litert
-#include "litert/cc/litert_model.h"  // from @litert
+#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 
 namespace litert::lm {
 
@@ -64,7 +64,7 @@ struct ElementTypeFor<float> {
 template <typename T>
 ::litert::Expected<::litert::TensorBuffer> CreateTensorBuffer(
     ::litert::Dimensions&& dimensions,
-    LiteRtTensorBufferType buffer_type = kLiteRtTensorBufferTypeHostMemory) {
+    TensorBufferType buffer_type = TensorBufferType::HostMemory) {
   int size = 1;
   for (int dim : dimensions) {
     size *= dim;
@@ -154,7 +154,7 @@ template <typename T>
 template <typename T>
 ::litert::Expected<::litert::TensorBuffer> CopyToTensorBuffer(
     absl::Span<const T> data, ::litert::Dimensions&& dimensions,
-    LiteRtTensorBufferType buffer_type = kLiteRtTensorBufferTypeHostMemory) {
+    TensorBufferType buffer_type = TensorBufferType::HostMemory) {
   auto output_tensor_buffer = ::litert::TensorBuffer::CreateManaged(
       buffer_type,
       ::litert::RankedTensorType(ElementTypeFor<T>::kType,
@@ -172,7 +172,7 @@ template <typename T>
 template <typename TargetType, typename SourceType>
 ::litert::Expected<::litert::TensorBuffer> ConvertAndCopyToTensorBuffer(
     absl::Span<const SourceType> source, ::litert::Dimensions&& dimensions,
-    LiteRtTensorBufferType buffer_type = kLiteRtTensorBufferTypeHostMemory) {
+    TensorBufferType buffer_type = TensorBufferType::HostMemory) {
   auto tensor_buffer = ::litert::TensorBuffer::CreateManaged(
       buffer_type,
       ::litert::RankedTensorType(ElementTypeFor<TargetType>::kType,
@@ -199,8 +199,7 @@ template <typename T>
 ::litert::Expected<absl::Span<T>> ReferTensorBufferAsSpan(
     ::litert::TensorBuffer& tensor_buffer) {
   if (auto buffer_type = tensor_buffer.BufferType();
-      !buffer_type.HasValue() ||
-      *buffer_type != kLiteRtTensorBufferTypeHostMemory) {
+      !buffer_type.HasValue() || *buffer_type != TensorBufferType::HostMemory) {
     return ::litert::Unexpected(kLiteRtStatusErrorInvalidArgument,
                                 "Tensor buffer is not in the host memory.");
   }

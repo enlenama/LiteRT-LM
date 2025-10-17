@@ -24,14 +24,13 @@
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
-#include "litert/c/litert_tensor_buffer_types.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
 #include "litert/cc/litert_macros.h"  // from @litert
-#include "litert/cc/litert_model.h"  // from @litert
+#include "litert/cc/litert_ranked_tensor_type.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "runtime/components/preprocessor/image_preprocessor.h"
 #include "runtime/engine/io_types.h"
-#include "runtime/util/litert_status_util.h"
 #include "runtime/util/status_macros.h"  // IWYU pragma: keep
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"  // from @stb
@@ -103,15 +102,15 @@ absl::StatusOr<InputImage> StbImagePreprocessor::Preprocess(
       batch_size * target_height * target_width * target_channels;
   const size_t buffer_size = num_elements * sizeof(float);
 
-  LITERT_ASSIGN_OR_RETURN_ABSL(
+  LITERT_ASSIGN_OR_RETURN(
       auto processed_tensor_buffer,
       ::litert::TensorBuffer::CreateManaged(
-          kLiteRtTensorBufferTypeHostMemory,
+          TensorBufferType::HostMemory,
           MakeRankedTensorType<float>(
               {batch_size, target_height, target_width, target_channels}),
           buffer_size));
 
-  LITERT_ASSIGN_OR_RETURN_ABSL(
+  LITERT_ASSIGN_OR_RETURN(
       auto processed_tensor_lock_and_addr,
       ::litert::TensorBufferScopedLock::Create(
           processed_tensor_buffer, ::litert::TensorBuffer::LockMode::kWrite));

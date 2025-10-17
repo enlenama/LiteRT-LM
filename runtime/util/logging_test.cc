@@ -22,7 +22,6 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include "litert/c/litert_tensor_buffer.h"  // from @litert
 #include "litert/cc/litert_element_type.h"  // from @litert
 #include "litert/cc/litert_model.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
@@ -66,7 +65,8 @@ TEST(LoggingTest, LogVariant) {
 TEST(LoggingTest, LogTensorBuffer_None) {
   std::stringstream oss;
   oss << ::litert::TensorBuffer();
-  EXPECT_EQ(oss.str(), "TensorBuffer: [tensor in non-host memory type=0]");
+  EXPECT_EQ(oss.str(),
+            "TensorBuffer: [tensor in non-host memory type=Unknown]");
 }
 
 TEST(LoggingTest, LogTensorBuffer_Vector) {

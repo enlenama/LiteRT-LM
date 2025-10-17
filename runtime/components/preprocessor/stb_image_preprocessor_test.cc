@@ -24,12 +24,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
-#include "litert/c/litert_tensor_buffer_types.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
+#include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "runtime/components/preprocessor/image_preprocessor.h"
 #include "runtime/engine/io_types.h"
-#include "runtime/util/test_utils.h"  // NOLINT
 
 namespace litert::lm {
 namespace {
@@ -67,7 +66,7 @@ TEST(StbImagePreprocessorTest, PreprocessSuccess) {
   // Verify the output tensor properties.
   auto buffer_type = preprocessed_tensor->BufferType();
   ASSERT_TRUE(buffer_type.HasValue());
-  EXPECT_EQ(buffer_type.Value(), kLiteRtTensorBufferTypeHostMemory);
+  EXPECT_EQ(buffer_type.Value(), TensorBufferType::HostMemory);
   auto tensor_type = preprocessed_tensor->TensorType();
   ASSERT_TRUE(tensor_type.HasValue());
   EXPECT_THAT(tensor_type.Value().Layout().Dimensions(),
