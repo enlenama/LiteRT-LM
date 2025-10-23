@@ -11,3 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+package(
+    default_applicable_licenses = ["//third_party/odml:license"],
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+licenses(["notice"])
+
+config_setting(
+    name = "macos",
+    constraint_values = ["//third_party/bazel_platforms/os:macos"],
+)

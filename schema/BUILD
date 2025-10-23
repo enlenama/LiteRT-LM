@@ -20,7 +20,8 @@ package_group(
 )
 
 package(
-    default_hdrs_check = "strict",
+    
+    
     default_visibility = [
         "//visibility:public",
     ],

@@ -16,7 +16,7 @@
 # [Google-internal load of `cc_test`]
 
 package(
-    default_hdrs_check = "strict",
+    
     default_visibility = [
         "//visibility:public",
     ],
@@ -33,6 +33,11 @@ cc_library(
     hdrs = [
         "engine.h",
         "litert_lm_logging.h",
+    ],
+    copts = [
+        "-Iexternal/com_google_absl",
+        "-Iexternal/io_odml_litert",
+        "-Iexternal/org_tensorflow",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -64,11 +69,14 @@ cc_library(
 cc_test(
     name = "engine_test",
     srcs = ["engine_test.cc"],
-    data = [
-        "//runtime/testdata",
-    ],
+    data = ["//runtime/testdata"],
     tags = ["requires-mac-inputs:hard"],
-    target_compatible_with = select({"@platforms//os:ios": [], "@platforms//os:linux": [], "@platforms//os:osx": [], "//conditions:default": ["@platforms//:incompatible"]}),
+    target_compatible_with = select({
+        "@platforms//os:ios": [],
+        "@platforms//os:linux": [],
+        "@platforms//os:osx": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
     deps = [
         ":engine",
         "@com_google_googletest//:gtest_main",

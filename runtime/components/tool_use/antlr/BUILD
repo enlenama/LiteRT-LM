@@ -15,6 +15,7 @@
 load("@rules_antlr//antlr:antlr4.bzl", "antlr")
 
 package(
+    
     default_visibility = [
         ":default_visibility",
     ],
