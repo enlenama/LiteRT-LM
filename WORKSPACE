@@ -163,6 +163,7 @@ maven_install(
     artifacts = [
         "com.google.flogger:flogger:0.9",
         "com.google.flogger:flogger-system-backend:0.9",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3",
     ],
     repositories = [
         "https://maven.google.com",

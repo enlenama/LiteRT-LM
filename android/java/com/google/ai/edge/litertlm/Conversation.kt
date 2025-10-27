@@ -18,8 +18,14 @@ package com.google.ai.edge.litertlm
 import com.google.common.flogger.FluentLogger
 import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicBoolean
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 
 /**
  * Represents a conversation with the LiteRT-LM model.
@@ -82,15 +88,19 @@ class Conversation(private val handle: Long, val toolManager: ToolManager) : Aut
   fun sendMessage(message: Message): Message {
     checkIsAlive()
 
-    var currentMessageJson = JSONObject().put("role", "user").put("content", message.toJson())
+    @Suppress("CheckReturnValue")
+    var currentMessageJson = buildJsonObject {
+      put("role", "user")
+      put("content", message.toJson())
+    }
     for (i in 0..<RECURRING_TOOL_CALL_LIMIT) {
       val responseJsonString = LiteRtLmJni.nativeSendMessage(handle, currentMessageJson.toString())
-      val responseJsonObject = JSONObject(responseJsonString)
+      val responseJsonObject = Json.decodeFromString<JsonObject>(responseJsonString)
 
-      if (responseJsonObject.has("tool_calls")) {
+      if ("tool_calls" in responseJsonObject) {
         currentMessageJson = handleToolCalls(responseJsonObject)
         // Loop back to send the tool response
-      } else if (responseJsonObject.has("content")) {
+      } else if ("content" in responseJsonObject) {
         return jsonToMessage(responseJsonObject)
       } else {
         throw IllegalStateException("Invalid response from native layer: $responseJsonString")
@@ -116,45 +126,86 @@ class Conversation(private val handle: Long, val toolManager: ToolManager) : Aut
     checkIsAlive()
 
     val jniCallback = JniMessageCallbackImpl(callback)
-    val messageJSONObject = JSONObject().put("role", "user").put("content", message.toJson())
+    @Suppress("CheckReturnValue")
+    val messageJSONObject = buildJsonObject {
+      put("role", "user")
+      put("content", message.toJson())
+    }
     LiteRtLmJni.nativeSendMessageAsync(handle, messageJSONObject.toString(), jniCallback)
   }
 
-  private fun handleToolCalls(toolCallsJsonObject: JSONObject): JSONObject {
-    val toolCallsJSONArray = toolCallsJsonObject.getJSONArray("tool_calls")
-    val toolResponsesJSONArray = JSONArray()
-
-    for (i in 0..<toolCallsJSONArray.length()) {
-      val toolCallJSONObject = toolCallsJSONArray.getJSONObject(i)
-      if (!toolCallJSONObject.has("function")) {
-        continue
-      }
-      val functionJSONObject = toolCallJSONObject.getJSONObject("function")
-      val functionName = functionJSONObject.getString("name")
-      val arguments = functionJSONObject.getJSONObject("arguments")
-
-      logger.atInfo().log("handleToolCalls: Calling tools %s", functionName)
-      val result = toolManager.execute(functionName, arguments)
-      val toolResponseJSONObject =
-        JSONObject()
-          .put("type", "tool_response")
-          .put("tool_response", JSONObject().put("name", functionName).put("value", result))
-      toolResponsesJSONArray.put(toolResponseJSONObject)
+  @Suppress("CheckReturnValue")
+  private fun createToolResponse(functionName: String, result: String): JsonObject {
+    return buildJsonObject {
+      put("type", "tool_response")
+      put(
+        "tool_response",
+        buildJsonObject {
+          put("name", functionName)
+          put("value", result)
+        },
+      )
     }
-    return JSONObject().put("role", "tool").put("content", toolResponsesJSONArray)
+  }
+
+  @Suppress("CheckReturnValue")
+  private fun handleToolCalls(toolCallsJsonObject: JsonObject): JsonObject {
+    return buildJsonObject {
+      put("role", "tool")
+      putJsonArray("content") {
+        val toolCallsJSONArray = toolCallsJsonObject["tool_calls"]!!.jsonArray
+        for (toolCallJSONObject in toolCallsJSONArray) {
+          val toolCall = toolCallJSONObject.jsonObject
+          if (!("function" in toolCall)) {
+            logger.atWarning().log("handleToolCalls: 'function' key not found in tool call")
+            continue
+          }
+
+          val functionJSONObject = toolCall["function"]?.jsonObject
+          if (functionJSONObject == null) {
+            logger.atWarning().log("handleToolCalls: 'function' key is not a JsonObject")
+            continue
+          }
+
+          val functionName = functionJSONObject["name"]?.jsonPrimitive?.content
+          val arguments = functionJSONObject["arguments"]?.jsonObject
+
+          if (functionName == null) {
+            logger.atWarning().log("handleToolCalls: 'name' key not found in function call")
+            add(createToolResponse("error", "Invalid tool call format: function name not found"))
+            continue
+          }
+
+          if (arguments == null) {
+            logger.atWarning().log("handleToolCalls: 'arguments' key not found in function call")
+            add(
+              createToolResponse(
+                functionName,
+                "Error: Invalid tool call format: arguments not found",
+              )
+            )
+            continue
+          }
+
+          logger.atInfo().log("handleToolCalls: Calling tools %s", functionName)
+          val result = toolManager.execute(functionName, arguments)
+          add(createToolResponse(functionName, result))
+        }
+      }
+    }
   }
 
   private inner class JniMessageCallbackImpl(private val callback: MessageCallback) :
     LiteRtLmJni.JniMessageCallback {
 
     /** The tool response to be returned back */
-    private var pendingToolResponseJSONMessage: JSONObject? = null
+    private var pendingToolResponseJSONMessage: JsonObject? = null
     private var toolCallCount = 0
 
     override fun onMessage(messageJsonString: String) {
-      val messageJsonObject = JSONObject(messageJsonString)
+      val messageJsonObject = Json.decodeFromString<JsonObject>(messageJsonString)
 
-      if (messageJsonObject.has("tool_calls")) {
+      if ("tool_calls" in messageJsonObject) {
         if (toolCallCount >= RECURRING_TOOL_CALL_LIMIT) {
           callback.onError(
             IllegalStateException(
@@ -165,7 +216,7 @@ class Conversation(private val handle: Long, val toolManager: ToolManager) : Aut
         }
         toolCallCount++
         pendingToolResponseJSONMessage = handleToolCalls(messageJsonObject)
-      } else if (messageJsonObject.has("content")) {
+      } else if ("content" in messageJsonObject) {
         callback.onMessage(jsonToMessage(messageJsonObject))
       }
     }
@@ -252,16 +303,16 @@ class Conversation(private val handle: Long, val toolManager: ToolManager) : Aut
     private const val RECURRING_TOOL_CALL_LIMIT = 25
     private val logger = FluentLogger.forEnclosingClass()
 
-    private fun jsonToMessage(messageJsonObject: JSONObject): Message {
-      val contentsJsonArray = messageJsonObject.getJSONArray("content")
+    private fun jsonToMessage(messageJsonObject: JsonObject): Message {
+      val contentsJsonArray = messageJsonObject["content"]!!.jsonArray
       val contents = mutableListOf<Content>()
 
-      for (i in 0..<contentsJsonArray.length()) {
-        val contentJsonObject = contentsJsonArray.getJSONObject(i)
-        val type = contentJsonObject.getString("type")
+      for (contentJsonObject in contentsJsonArray) {
+        val content = contentJsonObject.jsonObject
+        val type = content["type"]!!.jsonPrimitive.content
 
         if (type == "text") {
-          contents.add(Content.Text(contentJsonObject.getString("text")))
+          contents.add(Content.Text(content["text"]!!.jsonPrimitive.content))
         } else {
           logger.atWarning().log("jsonToMessage: Got unsupported content type: %s", type)
         }

@@ -16,8 +16,15 @@
 package com.google.ai.edge.litertlm
 
 import kotlin.reflect.full.functions
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 
 /**
  * Example of how to define tools:
@@ -81,18 +88,18 @@ internal class Tooling(val instance: Any, val kFunction: kotlin.reflect.KFunctio
   /**
    * Executes the tool function with the given parameters.
    *
-   * @param params A JSONObject containing the parameter names and their values.
-   * @return The result of the tool function execution as a Any?.\
+   * @param params A JsonObject containing the parameter names and their values.
+   * @return The result of the tool function execution as a Any?.
    * @throws IllegalArgumentException if any required parameters are missing.
    */
-  fun execute(params: JSONObject): Any? {
+  fun execute(params: JsonObject): Any? {
     val args =
       kFunction.parameters
         .associateWith { param ->
           when {
             param.index == 0 -> instance // First parameter is the instance
-            param.name != null && params.has(param.name) -> {
-              val value = params.get(param.name!!)
+            param.name != null && param.name in params -> {
+              val value = params[param.name!!]!!
               convertJsonValue(value, param.type)
             }
             param.isOptional -> null // Use default value
@@ -112,20 +119,20 @@ internal class Tooling(val instance: Any, val kFunction: kotlin.reflect.KFunctio
    * @return The converted value.
    * @throws IllegalArgumentException if the value cannot be converted to the target type.
    */
-  private fun convertJsonValue(value: Any, type: kotlin.reflect.KType): Any {
+  private fun convertJsonValue(value: JsonElement, type: kotlin.reflect.KType): Any {
     val classifier = type.classifier
     return when {
-      classifier == List::class && value is JSONArray -> {
+      classifier == List::class && value is JsonArray -> {
         val listTypeArgument = type.arguments.firstOrNull()?.type
-        List(value.length()) { i -> convertJsonValue(value.get(i), listTypeArgument!!) }
+        value.map { element -> convertJsonValue(element, listTypeArgument!!) }
       }
-      classifier == Int::class && value is Number -> value.toInt()
-      classifier == Float::class && value is Number -> value.toFloat()
-      classifier == Double::class && value is Number -> value.toDouble()
-      classifier == String::class -> value.toString()
-      classifier == Boolean::class && value is Boolean -> value
+      classifier == Int::class && value is JsonPrimitive -> value.content.toInt()
+      classifier == Float::class && value is JsonPrimitive -> value.content.toFloat()
+      classifier == Double::class && value is JsonPrimitive -> value.content.toDouble()
+      classifier == String::class && value is JsonPrimitive -> value.content
+      classifier == Boolean::class && value is JsonPrimitive -> value.content.toBoolean()
       // Add more conversions if needed
-      else -> value
+      else -> throw IllegalArgumentException("Unsupported type conversion for $value to $type")
     }
   }
 
@@ -133,10 +140,10 @@ internal class Tooling(val instance: Any, val kFunction: kotlin.reflect.KFunctio
    * Generates a JSON schema for the given Kotlin type.
    *
    * @param type The Kotlin type to generate the schema for.
-   * @return A JSONObject representing the JSON schema.
+   * @return A JsonObject representing the JSON schema.
    * @throws IllegalArgumentException if the type is not supported.
    */
-  private fun getTypeJsonSchema(type: kotlin.reflect.KType): JSONObject {
+  private fun getTypeJsonSchema(type: kotlin.reflect.KType): JsonObject {
     val classifier = type.classifier
     val jsonType = javaTypeToJsonTypeString[classifier]
 
@@ -147,15 +154,17 @@ internal class Tooling(val instance: Any, val kFunction: kotlin.reflect.KFunctio
       )
     }
 
-    val schema = JSONObject().put("type", jsonType)
-    if (classifier == List::class) {
-      val listTypeArgument = type.arguments.firstOrNull()?.type
-      if (listTypeArgument == null) {
-        throw IllegalArgumentException("List type argument is missing.")
+    @Suppress("CheckReturnValue")
+    return buildJsonObject {
+      put("type", jsonType)
+      if (classifier == List::class) {
+        val listTypeArgument = type.arguments.firstOrNull()?.type
+        if (listTypeArgument == null) {
+          throw IllegalArgumentException("List type argument is missing.")
+        }
+        put("items", getTypeJsonSchema(listTypeArgument))
       }
-      schema.put("items", getTypeJsonSchema(listTypeArgument))
     }
-    return schema
   }
 
   /**
@@ -163,37 +172,38 @@ internal class Tooling(val instance: Any, val kFunction: kotlin.reflect.KFunctio
    *
    * @return The tool description.
    */
-  fun getToolDescription(): JSONObject {
-    val toolAnnotation = kFunction.annotations.find { it is Tool } as? Tool ?: return JSONObject()
-
-    val description = toolAnnotation.description
+  fun getToolDescription(): JsonObject {
+    val toolAnnotation =
+      kFunction.annotations.find { it is Tool } as? Tool ?: return buildJsonObject {}
 
     val parameters = kFunction.parameters.drop(1) // Drop the instance parameter
-    val properties = JSONObject()
-    for (param in parameters) {
-      val paramAnnotation = param.annotations.find { it is ToolParam } as? ToolParam
-      val paramJsonSchema = getTypeJsonSchema(param.type)
-      // add "description" if provided
-      paramAnnotation?.description?.let { paramJsonSchema.put("description", it) }
-      paramJsonSchema.put("nullable", param.type.isMarkedNullable)
-      properties.put(param.name!!, paramJsonSchema)
+
+    @Suppress("CheckReturnValue")
+    return buildJsonObject {
+      put("name", kFunction.name)
+      put("description", toolAnnotation.description)
+      putJsonObject("parameters") {
+        put("type", "object")
+        putJsonObject("properties") {
+          for (param in parameters) {
+            val paramAnnotation = param.annotations.find { it is ToolParam } as? ToolParam
+            putJsonObject(param.name!!) {
+              for ((key, value) in getTypeJsonSchema(param.type)) {
+                put(key, value)
+              }
+              // add "description" if provided
+              paramAnnotation?.description?.let { put("description", it) }
+              put("nullable", param.type.isMarkedNullable)
+            }
+          }
+        }
+        putJsonArray("required") {
+          for (it in parameters.filter { !it.isOptional }) {
+            add(JsonPrimitive(it.name))
+          }
+        }
+      }
     }
-
-    val requiredParams = JSONArray(parameters.filter { !it.isOptional }.map { it.name })
-
-    val schema =
-      JSONObject()
-        .put("type", "object")
-        .put("properties", properties)
-        .put("required", requiredParams)
-
-    val openApiSpec =
-      JSONObject()
-        .put("name", kFunction.name)
-        .put("description", description)
-        .put("parameters", schema)
-
-    return openApiSpec
   }
 }
 
@@ -218,11 +228,11 @@ class ToolManager(val toolSets: List<Any>) {
    * Executes a tool function by its name with the given parameters.
    *
    * @param functionName The name of the tool function to execute.
-   * @param params A JSONObject containing the parameter names and their values.
+   * @param params A JsonObject containing the parameter names and their values.
    * @return The result of the tool function execution as a string.
    * @throws IllegalArgumentException if the tool function is not found.
    */
-  fun execute(functionName: String, params: JSONObject): String {
+  fun execute(functionName: String, params: JsonObject): String {
     try {
       val tool =
         tools[functionName] ?: throw IllegalArgumentException("Tool not found: ${functionName}")
@@ -244,7 +254,11 @@ class ToolManager(val toolSets: List<Any>) {
    *
    * @return A json array of OpenAPI tool description JSON as string.
    */
-  fun getToolsDescription(): JSONArray {
-    return JSONArray(tools.values.map { it.getToolDescription() })
+  fun getToolsDescription(): JsonArray {
+    return buildJsonArray {
+      for (tool in tools.values) {
+        @Suppress("CheckReturnValue") add(tool.getToolDescription())
+      }
+    }
   }
 }
