@@ -152,6 +152,15 @@ class InputAudio {
 // types in the future.
 using InputData = std::variant<InputText, InputImage, InputAudio>;
 
+// A struct that holds the input data and the corresponding raw input string
+// loaded from the input source for batch I/O.
+struct BatchIoInput {
+  // The input data to be processed by the model.
+  std::vector<InputData> input_data;
+  // The serialized input string corresponding to the input data.
+  std::string raw_input;
+};
+
 // Creates a copy of the InputData.
 inline absl::StatusOr<InputData> CreateInputDataCopy(const InputData& data) {
   if (const auto* input_text = std::get_if<InputText>(&data)) {
