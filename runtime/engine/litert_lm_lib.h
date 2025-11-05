@@ -26,6 +26,7 @@
 #include "absl/log/log_sink.h"  // from @com_google_absl
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/synchronization/mutex.h"  // from @com_google_absl
+#include "runtime/engine/batch_io/litert_lm_batch_io.h"
 
 namespace litert {
 namespace lm {
@@ -83,6 +84,7 @@ struct LiteRtLmSettings {
   bool disable_cache = false;
 };
 
+// Runs the LLM inference with the given settings.
 absl::Status RunLiteRtLm(const LiteRtLmSettings& settings);
 
 }  // namespace lm

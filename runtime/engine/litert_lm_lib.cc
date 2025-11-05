@@ -48,6 +48,8 @@
 #include "nlohmann/json.hpp"  // from @nlohmann_json
 #include "runtime/conversation/conversation.h"
 #include "runtime/conversation/io_types.h"
+#include "runtime/engine/batch_io/batch_io_utils.h"
+#include "runtime/engine/batch_io/litert_lm_batch_io.h"
 #include "runtime/engine/engine.h"
 #include "runtime/engine/engine_settings.h"
 #include "runtime/engine/io_types.h"
