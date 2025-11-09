@@ -15,7 +15,8 @@
 # [Google-internal load of `cc_library`]
 
 package(
-    default_hdrs_check = "strict",
+    
+    
     default_visibility = [
         "//visibility:public",
     ],

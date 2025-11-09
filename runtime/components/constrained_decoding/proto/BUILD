@@ -14,6 +14,6 @@
 
 package(
     default_applicable_licenses = ["//third_party/odml:license"],
-    default_hdrs_check = "strict",
+    
     default_visibility = ["//:__subpackages__"],
 )
