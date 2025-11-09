@@ -13,7 +13,8 @@
 # limitations under the License.
 
 package(
-    default_hdrs_check = "strict",
+    
+    
     default_visibility = ["//:__subpackages__"],
 )
 

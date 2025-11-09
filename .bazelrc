@@ -126,6 +126,16 @@ build --repo_env=HERMETIC_PYTHON_VERSION=3.13
 
 # Default options should come above this line.
 
+# Enable CGO for Go on all platforms, including Windows.
+build --@io_bazel_rules_go//go/config:pure=false
+
+# MinGW specific toolchain flags for Windows CGo
+build:windows --compiler=mingw-gcc
+build:windows --incompatible_enable_cc_toolchain_resolution
+build:windows --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw
+build:windows --host_platform=//go_api:windows_amd64_mingw
+build:windows --platforms=//go_api:windows_amd64_mingw
+
 # Enforce clang as C/C++ compiler on Linux.
 build:linux --action_env=CC=clang
 build:linux --action_env=CXX=clang++
@@ -285,6 +295,11 @@ build:windows --host_copt=/Zc:__cplusplus
 build:windows --copt=/D_USE_MATH_DEFINES
 build:windows --host_copt=/D_USE_MATH_DEFINES
 
+# Disable XNNPACK assembly kernels on Windows to avoid toolchain conflicts.
+# This is passed as a --define so that it can be used in select() statements
+# in XNNPACK's BUILD files to exclude assembly sources.
+build:windows --define=XNN_NO_ASSEMBLY=1
+
 # Windows has a relatively short command line limit, which TF has begun to hit.
 # See https://docs.bazel.build/versions/main/windows.html
 build:windows --features=compiler_param_file
@@ -396,11 +411,9 @@ build:verbose_logs --output_filter=
 #   avoid having to define linux/win separately.
 build:avx_linux --copt=-mavx
 build:avx_linux --host_copt=-mavx
-build:avx_win --copt=/arch:AVX
 
-# Assume AVX2 x86_64 platforms for linux and windows.
+# Assume AVX2 x86_64 platforms for linux.
 build:linux --copt=-mavx2
-build:windows --copt=/arch:AVX2
 
 # Enable all targets in XLA
 build:cpu_cross --define=with_cross_compiler_support=true
