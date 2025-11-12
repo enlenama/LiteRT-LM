@@ -34,6 +34,7 @@ cc_library(
         "engine.h",
         "litert_lm_logging.h",
     ],
+    aspect_hints = ["//tools/build_defs/swift:auto_module"],
     visibility = ["//visibility:public"],
     deps = [
         "@com_google_absl//absl/base:core_headers",
