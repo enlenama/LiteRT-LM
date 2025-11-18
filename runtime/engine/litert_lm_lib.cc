@@ -537,6 +537,12 @@ absl::Status RunLiteRtLm(const LiteRtLmSettings& settings) {
     ASSIGN_OR_RETURN(
         auto conversation_config,
         ConversationConfig::CreateFromSessionConfig(*engine, session_config));
+    if (settings.backend == "npu") {
+      ASSIGN_OR_RETURN(
+          conversation_config,
+          ConversationConfig::CreateFromSessionConfig(
+              *engine, session_config, std::nullopt, std::nullopt, true));
+    }
     ASSIGN_OR_RETURN(conversation,
                      Conversation::Create(*engine, conversation_config));
     if (settings.multi_turns) {
