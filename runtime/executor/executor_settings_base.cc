@@ -44,6 +44,8 @@ std::string GetBackendString(Backend backend) {
       return "CPU";
     case Backend::GOOGLE_TENSOR_ARTISAN:
       return "GOOGLE_TENSOR_ARTISAN";
+    case Backend::GOOGLE_TENSOR:
+      return "GOOGLE_TENSOR";
     case Backend::NPU:
       return "NPU";
     default:
@@ -68,11 +70,13 @@ absl::StatusOr<Backend> GetBackendFromString(absl::string_view backend_str) {
     return Backend::CPU_ARTISAN;
   } else if (absl::EqualsIgnoreCase(backend_str, "google_tensor_artisan")) {
     return Backend::GOOGLE_TENSOR_ARTISAN;
+  } else if (absl::EqualsIgnoreCase(backend_str, "google_tensor")) {
+    return Backend::GOOGLE_TENSOR;
   } else {
     return absl::InvalidArgumentError(
         absl::StrCat("Unsupported backend: ", backend_str,
                      ". Supported backends are: [CPU, GPU, NPU, GPU_ARTISAN, "
-                     "CPU_ARTISAN, GOOGLE_TENSOR_ARTISAN]"));
+                     "CPU_ARTISAN, GOOGLE_TENSOR_ARTISAN, GOOGLE_TENSOR]"));
   }
 }
 

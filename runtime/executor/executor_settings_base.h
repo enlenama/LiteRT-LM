@@ -49,6 +49,9 @@ enum class Backend {
   // Google Tensor Emission Graph backend.
   GOOGLE_TENSOR_ARTISAN,
 
+  // Google Tensor Single Graph backend.
+  GOOGLE_TENSOR,
+
   // NPU backend.
   NPU,
 };
