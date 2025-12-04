@@ -100,6 +100,10 @@ class LlmLiteRtCompiledModelExecutorBase : public LlmExecutor {
     return processed_tokens_.TokenCount();
   }
 
+  // Sets the current step of the executor. The new step should not be larger
+  // than the current step.
+  absl::Status SetCurrentStep(int new_step) override;
+
   // Resets all of the internal states.
   absl::Status Reset() override;
 

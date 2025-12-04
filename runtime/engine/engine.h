@@ -175,6 +175,11 @@ class Engine {
       ABSL_LOG(FATAL) << "CancelProcess is not implemented.";
     }
 
+    // Rolls back the session by the given number of tokens.
+    virtual absl::Status RollBack(int num_tokens) {
+      return absl::UnimplementedError("RollBack is not implemented.");
+    }
+
     // Get the reference to the session config for the session.
     virtual const SessionConfig& GetSessionConfig() const = 0;
 

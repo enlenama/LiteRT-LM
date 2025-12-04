@@ -989,6 +989,36 @@ absl::Status LlmLiteRtCompiledModelExecutorBase::SampleLogits(
   return absl::OkStatus();
 }
 
+absl::Status LlmLiteRtCompiledModelExecutorBase::SetCurrentStep(int new_step) {
+  ASSIGN_OR_RETURN(int current_external_step, GetCurrentStep());
+  RET_CHECK_LE(new_step, current_external_step)
+          .SetCode(absl::StatusCode::kInvalidArgument)
+      << "New step cannot be greater than the current step: "
+      << current_external_step;
+  RET_CHECK_GE(new_step, 0).SetCode(absl::StatusCode::kInvalidArgument)
+      << "New step cannot be negative.";
+  if (new_step == current_external_step) {
+    return absl::OkStatus();
+  }
+  // Rollback one more step to make sure we always have an unprocessed token
+  // maintained.
+  current_step_ = new_step - 1;
+  if (current_step_ < 0) {
+    // Current step is negative after rolling back. This can only happen when
+    // the user wants to set the step to 0 while there is a pending input token.
+    // Thus we can roll back executor state to step 0.
+    return Reset();
+  }
+
+  // We should still maintain a unprocessed token after rolling back.
+  processed_tokens_.InvalidatePendingInputToken();
+  auto next_input_token = processed_tokens_.GetTokensUnsafe()[current_step_];
+  RETURN_IF_ERROR(processed_tokens_.RollBackToStep(current_step_));
+  RETURN_IF_ERROR(processed_tokens_.AddPendingInputToken(
+      {std::make_shared<TokenData>(std::move(next_input_token))}));
+  return absl::OkStatus();
+}
+
 absl::Status LlmLiteRtCompiledModelExecutorBase::Reset() {
   current_step_ = 0;
   RETURN_IF_ERROR(processed_tokens_.RollBackToStep(0));

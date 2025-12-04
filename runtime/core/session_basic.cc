@@ -451,4 +451,13 @@ absl::StatusOr<BenchmarkInfo> SessionBasic::GetBenchmarkInfo() {
       "in the EngineSettings.");
 }
 
+absl::Status SessionBasic::RollBack(int num_tokens) {
+  ASSIGN_OR_RETURN(auto current_step, executor_.GetCurrentStep());
+  if (current_step - num_tokens < 0) {
+    return absl::InvalidArgumentError(
+        "The number of tokens to roll back exceeds the current step.");
+  }
+  return executor_.SetCurrentStep(current_step - num_tokens);
+}
+
 }  // namespace litert::lm

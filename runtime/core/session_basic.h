@@ -118,6 +118,9 @@ class SessionBasic : public Engine::Session {
     cancelled_.store(true);
   }
 
+  // Rolls back the session by the given number of tokens.
+  absl::Status RollBack(int num_tokens) override;
+
   const SessionConfig& GetSessionConfig() const override {
     return session_config_;
   }

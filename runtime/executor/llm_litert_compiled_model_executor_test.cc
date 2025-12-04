@@ -207,6 +207,91 @@ TEST(LlmLiteRtCompiledModelExecutorStaticTest, DecodeTest) {
   }
 }
 
+TEST(LlmLiteRtCompiledModelExecutorStaticTest, SetCurrentStepTest) {
+  auto model_path =
+      std::filesystem::path(::testing::SrcDir()) / kTestStaticModelPath;
+  ASSERT_OK_AND_ASSIGN(auto model_resources,
+                       CreateExecutorModelResourcesTask(model_path.string()));
+  ASSERT_OK_AND_ASSIGN(auto model_assets,
+                       ModelAssets::Create(model_path.string()));
+  auto executor_settings =
+      LlmExecutorSettings::CreateDefault(model_assets, Backend::CPU);
+  executor_settings->SetCacheDir(":nocache");
+  executor_settings->SetMaxNumTokens(kMaxNumTokens);
+  ::litert::lm::CpuConfig config;
+  config.number_of_threads = kNumThreads;
+  executor_settings->SetBackendConfig(config);
+  LITERT_ASSERT_OK_AND_ASSIGN(
+      auto env, Environment::Create(std::vector<Environment::Option>()));
+  ASSERT_OK_AND_ASSIGN(auto executor,
+                       LlmLiteRtCompiledModelExecutorStatic::Create(
+                           *executor_settings, env, *model_resources));
+  ASSERT_NE(executor, nullptr);
+
+  ExecutorInputs inputs;
+  // Create a tensor buffer with 3 elements but only the first two elements
+  // are actually processed.
+  const std::vector<int> input_tokens = {1, 2, 0};
+  LITERT_ASSERT_OK_AND_ASSIGN(
+      auto input_tokens_buffer,
+      CopyToTensorBuffer<int>(absl::MakeSpan(input_tokens), {1, 3}));
+  inputs.SetTextData(ExecutorTextData(std::move(input_tokens_buffer)));
+
+  EXPECT_OK(executor->Prefill(inputs));
+
+  ASSERT_OK_AND_ASSIGN(auto current_step, executor->GetCurrentStep());
+
+  EXPECT_EQ(current_step, 3);
+
+  {
+    ASSERT_OK_AND_ASSIGN(auto current_step, executor->GetCurrentStep());
+    EXPECT_EQ(current_step, 3);
+  }
+
+  LITERT_ASSERT_OK_AND_ASSIGN(auto output_tokens,
+                              CreateTensorBuffer<int>({1, 1}));
+
+  {
+    EXPECT_OK(executor->Decode(output_tokens));
+
+    ASSERT_OK_AND_ASSIGN(auto current_step, executor->GetCurrentStep());
+    EXPECT_EQ(current_step, 4);
+
+    auto output_tokens_span = ReferTensorBufferAsSpan<int>(output_tokens);
+    EXPECT_EQ((*output_tokens_span)[0], 8005);
+  }
+
+  {
+    EXPECT_OK(executor->Decode(output_tokens));
+
+    ASSERT_OK_AND_ASSIGN(auto current_step, executor->GetCurrentStep());
+    EXPECT_EQ(current_step, 5);
+
+    auto output_tokens_span = ReferTensorBufferAsSpan<int>(output_tokens);
+    EXPECT_EQ((*output_tokens_span)[0], 52530);
+  }
+
+  {
+    EXPECT_OK(executor->SetCurrentStep(3));
+    ASSERT_OK_AND_ASSIGN(current_step, executor->GetCurrentStep());
+    EXPECT_EQ(current_step, 3);
+    EXPECT_OK(executor->Decode(output_tokens));
+    ASSERT_OK_AND_ASSIGN(current_step, executor->GetCurrentStep());
+    EXPECT_EQ(current_step, 4);
+    auto output_tokens_span = ReferTensorBufferAsSpan<int>(output_tokens);
+    EXPECT_EQ((*output_tokens_span)[0], 8005);
+  }
+  {
+    EXPECT_OK(executor->SetCurrentStep(0));
+    ASSERT_OK_AND_ASSIGN(current_step, executor->GetCurrentStep());
+    EXPECT_EQ(current_step, 0);
+  }
+  {
+    EXPECT_THAT(executor->SetCurrentStep(-1),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+  }
+}
+
 TEST(LlmLiteRtCompiledModelExecutorStaticTest, ConstrainedDecodeTest) {
   auto model_path =
       std::filesystem::path(::testing::SrcDir()) / kTestStaticModelPath;

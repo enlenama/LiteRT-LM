@@ -1449,5 +1449,43 @@ TEST_F(SessionBasicTest,
   EXPECT_THAT(texts, testing::ElementsAre("'", "s", " it"));
 }
 
+TEST_F(SessionBasicTest, RollBack) {
+  const std::vector<std::vector<int>> stop_token_ids = {{2294}};
+  SessionConfig session_config = SessionConfig::CreateDefault();
+  session_config.GetMutableSamplerParams() = sampler_params_;
+  session_config.GetMutableStopTokenIds() = stop_token_ids;
+  session_config.SetStartTokenId(2);
+  session_config.SetSamplerBackend(Backend::CPU);
+  ASSERT_OK_AND_ASSIGN(
+      auto executor,
+      CreateFakeLlmExecutor(
+          /*prefill_tokens=*/{{2, 90, 547, 58, 735, 210, 466, 2294},
+                              {735, 210, 466, 2294}},
+          /*decode_tokens=*/{
+              {224}, {24}, {8}, {66}, {246}, {18}, {2295}, {2294}}));
+  auto session = SessionBasic::Create(
+      executor.get(), tokenizer_.get(), /*vision_executor=*/nullptr,
+      /*audio_executor=*/nullptr, session_config, std::nullopt,
+      worker_thread_pool_.get());
+  std::vector<InputData> inputs_1;
+  inputs_1.emplace_back(InputText("Hello World!"));
+  EXPECT_OK((*session)->RunPrefill(inputs_1));
+  // Roll back more tokens than the current step.
+  EXPECT_THAT((*session)->RollBack(9),
+              testing::status::StatusIs(absl::StatusCode::kInvalidArgument));
+  // Roll back 4 tokens.
+  EXPECT_OK((*session)->RollBack(4));
+  std::vector<InputData> inputs_2;
+  inputs_2.emplace_back(InputText("World!"));
+  EXPECT_OK((*session)->RunPrefill(inputs_2));
+  auto responses = (*session)->RunDecode();
+  EXPECT_OK(responses);
+  // Expect a single output candidate.
+  EXPECT_EQ(responses->GetTexts().size(), 1);
+  // The response is " How's it going?" since "!" is the stop token which is
+  // not included in the response.
+  EXPECT_EQ(responses->GetTexts()[0], " How's it going?");
+}
+
 }  // namespace
 }  // namespace litert::lm
