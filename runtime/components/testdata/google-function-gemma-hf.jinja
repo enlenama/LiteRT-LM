@@ -1,14 +1,13 @@
-{# --- MACRO DEFINITION --- #}
-{% macro format_parameters(properties, required) -%}
+{%- macro format_parameters(properties, required) -%}
     {%- set standard_keys = ['description', 'type', 'properties', 'required', 'nullable'] -%}
     {%- set ns = namespace(found_first=false) -%}
-    {%- for key, value in properties.items() -%}
+    {%- for key, value in properties | dictsort -%}
         {%- if key not in standard_keys -%}
             {%- if ns.found_first %},{% endif -%}
             {%- set ns.found_first = true -%}
-            {{- key }}:{description:<escape>{{ value['description'] }}<escape>,nullable:{{ 'false' if key in required else 'true' }},type:<escape>{{ value['type'] | upper }}<escape>
+            {{- key }}:{description:<escape>{{ value['description'] }}<escape>
             {%- if value['type'] | upper == 'STRING' -%}
-                {%- if value['enum'] is not none -%}
+                {%- if value['enum'] -%}
                     ,enum:{{ format_argument(value['enum']) }}
                 {%- endif -%}
             {%- elif value['type'] | upper == 'OBJECT' -%}
@@ -18,17 +17,20 @@
                 {%- elif value is mapping -%}
                     {{- format_parameters(value, value['required'] | default([])) -}}
                 {%- endif -%}
-                },required:[
-                {%- for item in value['required'] | default([]) -%}
-                    <escape>{{- item -}}<escape>
-                    {%- if not loop.last %},{% endif -%}
-                {%- endfor -%}
-                ]
+                }
+                {%- if value['required'] -%}
+                    ,required:[
+                    {%- for item in value['required'] | default([]) -%}
+                        <escape>{{- item -}}<escape>
+                        {%- if not loop.last %},{% endif -%}
+                    {%- endfor -%}
+                    ]
+                {%- endif -%}
             {%- elif value['type'] | upper == 'ARRAY' -%}
                 {%- if value['items'] is mapping and value['items'] -%}
                     ,items:{
                     {%- set ns_items = namespace(found_first=false) -%}
-                    {%- for item_key, item_value in value['items'].items() -%}
+                    {%- for item_key, item_value in value['items'] | dictsort -%}
                         {%- if item_value is not none -%}
                             {%- if ns_items.found_first %},{% endif -%}
                             {%- set ns_items.found_first = true -%}
@@ -46,65 +48,82 @@
                                 {%- endfor -%}
                                 ]
                             {%- elif item_key == 'type' -%}
-                                type:<escape>{{ item_value | upper }}<escape>
+                                type:{{ format_argument(item_value | map('upper') | list) }}
                             {%- else -%}
-                                {{ item_key }}:{{ item_value }}
+                                {{ item_key }}:{{ format_argument(item_value) }}
                             {%- endif -%}
                         {%- endif -%}
                     {%- endfor -%}
                     }
                 {%- endif -%}
             {%- endif -%}
-            }
+            ,type:<escape>{{ value['type'] | upper }}<escape>}
         {%- endif -%}
     {%- endfor -%}
-{%- endmacro %}
+{%- endmacro -%}
 {% macro format_function_declaration(tool_data) -%}
 declaration:{{- tool_data['function']['name'] -}}
-{description:<escape>{{- tool_data['function']['description'] -}}
-<escape>,parameters:{properties:{
-{{- format_parameters(tool_data['function']['parameters']['properties'], tool_data['function']['parameters']['required']) -}}},required:[
-{%- for item in tool_data['function']['parameters']['required'] -%}
-<escape>{{- item -}}<escape>
-{%- if not loop.last %},{% endif -%}
-{%- endfor -%} ],type:<escape>{{ tool_data['function']['parameters']['type'] | upper }}<escape>}}
-{%- endmacro %}
-{% macro format_argument(argument) -%}
+{description:<escape>{{- tool_data['function']['description'] -}}<escape>
+{%- set params = tool_data['function']['parameters'] -%}
+{%- if params -%}
+    ,parameters:{
+    {%- if params['properties'] -%}
+        properties:{ {{- format_parameters(params['properties'], params['required']) -}} },
+    {%- endif -%}
+    {%- if params['required'] -%}
+        required:[
+        {%- for item in params['required'] -%}
+            <escape>{{- item -}}<escape>
+            {{- ',' if not loop.last -}}
+        {%- endfor -%}
+        ],
+    {%- endif -%}
+    {%- if params['type'] -%}
+        type:<escape>{{- params['type'] | upper -}}<escape>}
+    {%- endif -%}
+{%- endif -%}
+}
+{%- endmacro -%}
+{% macro format_argument(argument, escape_keys=True) -%}
 {%- if argument is string -%}
     {{- '<escape>' + argument + '<escape>' -}}
 {%- elif argument is boolean -%}
     {%- if argument -%}
-        {{- '<escape>true<escape>' -}}
+        {{- 'true' -}}
     {%- else -%}
-        {{- '<escape>false<escape>' -}}
+        {{- 'false' -}}
     {%- endif -%}
 {%- elif argument is mapping -%}
     {{- '{' -}}
     {%- set ns = namespace(found_first=false) -%}
-    {%- for key, value in argument.items() -%}
+    {%- for key, value in argument | dictsort -%}
         {%- if ns.found_first %},{% endif -%}
         {%- set ns.found_first = true -%}
-        {{- '<escape>' + key + '<escape>' -}}:{{- format_argument(value) -}}
+        {%- if escape_keys -%}
+            {{- '<escape>' + key + '<escape>' -}}
+        {%- else -%}
+            {{- key -}}
+        {%- endif -%}
+        :{{- format_argument(value, escape_keys=escape_keys) -}}
     {%- endfor -%}
     {{- '}' -}}
 {%- elif argument is sequence -%}
     {{- '[' -}}
     {%- for item in argument -%}
-        {{- format_argument(item) -}}
+        {{- format_argument(item, escape_keys=escape_keys) -}}
         {%- if not loop.last %},{% endif -%}
     {%- endfor -%}
     {{- ']' -}}
 {%- else -%}
     {{- argument -}}
 {%- endif -%}
-{%- endmacro %}
+{%- endmacro -%}
 {{ bos_token }}
 {%- set ns = namespace(prev_message_type=None) -%}
 {#- Tool Declarations -#}
 {%- set loop_messages = messages -%}
 {%- if tools or messages[0]['role'] == 'system' or messages[0]['role'] == 'developer' -%}
-    {{- '<start_of_turn>developer
-' -}}
+    {{- '<start_of_turn>developer\n' -}}
     {%- if messages[0]['role'] == 'system' or messages[0]['role'] == 'developer' -%}
         {%- if messages[0]['content'] is string -%}
             {{- messages[0]['content'] | trim -}}
@@ -122,8 +141,7 @@ declaration:{{- tool_data['function']['name'] -}}
         {{- format_function_declaration(tool) | trim }}
         {{- '<end_function_declaration>' -}}
     {%- endfor %}
-    {{- '<end_of_turn>
-'}}
+    {{- '<end_of_turn>\n' }}
 {%- endif %}
 {#- Loop through messages. -#}
 {%- for message in loop_messages -%}
@@ -134,12 +152,8 @@ declaration:{{- tool_data['function']['name'] -}}
         {%- set role = message['role'] -%}
     {%- endif -%}
     {%- if role != 'tool' -%}
-        {%- if ns.prev_message_type == 'tool_call' -%}
-            {{ raise_exception("Tool call must be followed by a tool response.") }}
-        {%- endif -%}
         {%- if ns.prev_message_type != 'tool_response' -%}
-            {{- '<start_of_turn>' + role + '
-'}}
+            {{- '<start_of_turn>' + role + '\n' }}
         {%- endif -%}
         {%- set ns.prev_message_type = None -%}
         {%- if 'content' in message and message['content'] is not none -%}
@@ -166,10 +180,10 @@ declaration:{{- tool_data['function']['name'] -}}
                 {%- if 'arguments' in function -%}
                     {%- if function['arguments'] is mapping -%}
                         {%- set ns = namespace(found_first=false) -%}
-                        {%- for key, value in function['arguments'].items() -%}
+                        {%- for key, value in function['arguments'] | dictsort -%}
                             {%- if ns.found_first %},{% endif -%}
                             {%- set ns.found_first = true -%}
-                            {{- key -}}:{{- format_argument(value) -}}
+                            {{- key -}}:{{- format_argument(value, escape_keys=False) -}}
                         {%- endfor -%}
                     {%- elif function['arguments'] is string -%}
                         {# This handles string-JSON, just in case #}
@@ -185,15 +199,15 @@ declaration:{{- tool_data['function']['name'] -}}
         {%- endif -%}
     {%- else -%}
         {#- Tool Responses -#}
-        {%- if 'content' in message and message['content'] is not none -%}
+        {%- if 'content' in message and message['content'] -%}
             {%- if message['content'] is mapping -%}
                 {%- if 'name' in message['content'] and 'response' in message['content'] -%}
                     {{ '<start_function_response>response:' + message['content']['name'] | trim + '{' }}
                     {%- set response_ns = namespace(found_first=false) -%}
-                    {%- for key, value in message['content']['response'].items() -%}
+                    {%- for key, value in message['content']['response'] | dictsort -%}
                         {%- if response_ns.found_first %},{% endif -%}
                         {%- set response_ns.found_first = true -%}
-                        {{- key -}}:{{- format_argument(value) -}}
+                        {{- key -}}:{{- format_argument(value, escape_keys=False) -}}
                     {%- endfor -%}
                     {{- '}<end_function_response>' -}}
                 {%- else -%}
@@ -229,8 +243,7 @@ declaration:{{- tool_data['function']['name'] -}}
         {%- set ns.prev_message_type = 'tool_response' -%}
     {%- endif -%}
     {%- if ns.prev_message_type not in ['tool_call', 'tool_response'] -%}
-        {{ '<end_of_turn>
-' }}
+        {{ '<end_of_turn>\n' }}
     {%- endif -%}
 {%- endfor -%}
 {%- if add_generation_prompt -%}
