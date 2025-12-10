@@ -1175,6 +1175,7 @@ LlmLiteRtCompiledModelExecutorStatic::Create(
       // GPU resource bindings are the same as the previous previous step.
       gpu_compilation_options.SetNumStepsOfCommandBufferPreparations(2);
       compilation_options.SetHardwareAccelerators(litert::HwAccelerators::kGpu);
+      gpu_compilation_options.SetHintFullyDelegatedToSingleDelegate(true);
       break;
     }
     case Backend::CPU: {
