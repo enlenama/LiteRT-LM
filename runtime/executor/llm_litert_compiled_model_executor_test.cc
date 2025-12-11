@@ -34,6 +34,7 @@
 #include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_element_type.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
@@ -52,7 +53,6 @@
 #include "runtime/util/convert_tensor_buffer.h"
 #include "runtime/util/litert_lm_loader.h"
 #include "runtime/util/model_asset_bundle_resources.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"
 #include "runtime/util/test_utils.h"  // IWYU pragma: keep
 
@@ -73,7 +73,7 @@ const int kNumThreads = 4;
 
 absl::StatusOr<std::unique_ptr<ModelResources>>
 CreateExecutorModelResourcesTask(absl::string_view model_path) {
-  auto scoped_file = ScopedFile::Open(model_path);
+  auto scoped_file = litert::ScopedFile::Open(model_path);
   auto resources = ModelAssetBundleResources::Create(
       /*tag=*/"", std::move(*scoped_file));
   auto model_resources = ModelResourcesTask::Create(std::move(*resources));
@@ -82,7 +82,7 @@ CreateExecutorModelResourcesTask(absl::string_view model_path) {
 
 absl::StatusOr<std::unique_ptr<ModelResources>>
 CreateExecutorModelResourcesLitertLm(absl::string_view model_path) {
-  ASSIGN_OR_RETURN(auto scoped_file, ScopedFile::Open(model_path));
+  ASSIGN_OR_RETURN(auto scoped_file, litert::ScopedFile::Open(model_path));
   return ModelResourcesLitertLm::Create(
       std::make_unique<LitertLmLoader>(std::move(scoped_file)));
 }
@@ -359,16 +359,16 @@ TEST(LlmLiteRtCompiledModelExecutorStaticTest,
                     absl::StrCat("cache-", std::rand(), ".cache");
   std::filesystem::remove_all(cache_path);
   {
-    // Create an empty file - ScopedFile expects the file to exist.
+    // Create an empty file - litert::ScopedFile expects the file to exist.
     std::ofstream cache_file(cache_path.string());
   }
   absl::Cleanup remove_cache = [cache_path] {
     std::filesystem::remove_all(cache_path);
   };
   ASSERT_OK_AND_ASSIGN(auto scoped_cache_file,
-                       ScopedFile::OpenWritable(cache_path.string()));
+                       litert::ScopedFile::OpenWritable(cache_path.string()));
   auto shared_scoped_cache_file =
-      std::make_shared<ScopedFile>(std::move(scoped_cache_file));
+      std::make_shared<litert::ScopedFile>(std::move(scoped_cache_file));
 
   auto model_path =
       std::filesystem::path(::testing::SrcDir()) / kTestStaticModelPath;

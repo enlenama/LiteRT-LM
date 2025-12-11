@@ -27,13 +27,13 @@
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/str_cat.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/engine/engine.h"
 #include "runtime/engine/engine_settings.h"
 #include "runtime/engine/io_types.h"
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/executor/llm_executor_settings.h"
 #include "runtime/proto/sampler_params.pb.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/test_utils.h"  // IWYU pragma: keep
 
 namespace litert::lm {
@@ -162,24 +162,24 @@ TEST(EngineTest, CreateEngine_WithModelAndCacheFromFileDescriptor) {
                     absl::StrCat("cache-", std::rand(), ".cache");
   std::filesystem::remove_all(cache_path);
   {
-    // Create an empty file - ScopedFile expects the file to exist.
+    // Create an empty file - litert::ScopedFile expects the file to exist.
     std::ofstream cache_file(cache_path.string());
   }
   absl::Cleanup remove_cache = [cache_path] {
     std::filesystem::remove_all(cache_path);
   };
   ASSERT_OK_AND_ASSIGN(auto scoped_cache_file,
-                       ScopedFile::OpenWritable(cache_path.string()));
+                       litert::ScopedFile::OpenWritable(cache_path.string()));
   auto shared_scoped_cache_file =
-      std::make_shared<ScopedFile>(std::move(scoped_cache_file));
+      std::make_shared<litert::ScopedFile>(std::move(scoped_cache_file));
 
   auto task_path =
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm_new_metadata.task";
   ASSERT_OK_AND_ASSIGN(auto task_descriptor,
-                       ScopedFile::Open(task_path.string()));
+                       litert::ScopedFile::Open(task_path.string()));
   auto shared_task_descriptor =
-      std::make_shared<ScopedFile>(std::move(task_descriptor));
+      std::make_shared<litert::ScopedFile>(std::move(task_descriptor));
   auto model_assets = ModelAssets::Create(shared_task_descriptor);
   ASSERT_OK(model_assets);
   auto engine_settings =

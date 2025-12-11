@@ -22,22 +22,22 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_buffer_ref.h"  // from @litert
 #include "runtime/components/model_resources_litert_lm.h"
 #include "runtime/components/model_resources_task.h"
 #include "runtime/util/litert_lm_loader.h"
 #include "runtime/util/model_asset_bundle_resources.h"
-#include "runtime/util/scoped_file.h"
 
 namespace {
 
+using ::litert::ScopedFile;
 using ::litert::lm::LitertLmLoader;
 using ::litert::lm::ModelAssetBundleResources;
 using ::litert::lm::ModelResourcesLitertLm;
 using ::litert::lm::ModelResourcesTask;
 using ::litert::lm::ModelType;
 using ::litert::lm::ModelTypeToString;
-using ::litert::lm::ScopedFile;
 using ::litert::lm::StringToModelType;
 
 #ifdef ENABLE_SENTENCEPIECE_TOKENIZER
@@ -45,7 +45,7 @@ TEST(ModelResourcesTest, InitializeWithValidLitertLmLoader) {
   const auto model_path =
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.litertlm";
-  auto model_file = ScopedFile::Open(model_path.string());
+  auto model_file = litert::ScopedFile::Open(model_path.string());
   ASSERT_TRUE(model_file.ok());
   LitertLmLoader loader(std::move(model_file.value()));
   ASSERT_GT(loader.GetSentencePieceTokenizer()->Size(), 0);
@@ -71,7 +71,7 @@ TEST(ModelResourcesTest, InitializeWithHuggingFaceTokenizer) {
   const auto model_path =
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_hf_tokenizer.litertlm";
-  auto model_file = ScopedFile::Open(model_path.string());
+  auto model_file = litert::ScopedFile::Open(model_path.string());
   ASSERT_TRUE(model_file.ok());
   LitertLmLoader loader(std::move(model_file.value()));
   ASSERT_GT(loader.GetHuggingFaceTokenizer()->Size(), 0);
@@ -91,7 +91,7 @@ TEST(ModelResourcesTest, InitializeWithValidModelAssetBundleResources) {
   const auto model_path =
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.task";
-  auto model_file = ScopedFile::Open(model_path.string());
+  auto model_file = litert::ScopedFile::Open(model_path.string());
   ASSERT_TRUE(model_file.ok());
   auto model_asset_bundle_resources =
       ModelAssetBundleResources::Create("tag", std::move(model_file.value()));
@@ -115,7 +115,7 @@ TEST(ModelResourcesTest, GetTFLiteModelNotFound) {
   const auto model_path =
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.litertlm";
-  auto model_file = ScopedFile::Open(model_path.string());
+  auto model_file = litert::ScopedFile::Open(model_path.string());
   ASSERT_TRUE(model_file.ok());
   LitertLmLoader loader(std::move(model_file.value()));
 
@@ -136,7 +136,7 @@ TEST(ModelResourcesTest, GetTFLiteModelNotFoundTask) {
   const auto model_path =
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.task";
-  auto model_file = ScopedFile::Open(model_path.string());
+  auto model_file = litert::ScopedFile::Open(model_path.string());
   ASSERT_TRUE(model_file.ok());
   auto model_asset_bundle_resources =
       ModelAssetBundleResources::Create("tag", std::move(model_file.value()));

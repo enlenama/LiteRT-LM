@@ -20,9 +20,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/components/model_resources.h"
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "schema/core/litertlm_header_schema_generated.h"
 
 namespace litert::lm {
@@ -33,7 +33,7 @@ TEST(LitertLmLoaderTest, InitializeWithSentencePieceFile) {
   const auto model_path =
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.litertlm";
-  auto model_file = ScopedFile::Open(model_path.string());
+  auto model_file = litert::ScopedFile::Open(model_path.string());
   EXPECT_TRUE(model_file.ok());
   LitertLmLoader loader(std::move(model_file.value()));
   EXPECT_FALSE(loader.GetHuggingFaceTokenizer());
@@ -48,7 +48,7 @@ TEST(LitertLmLoaderTest, InitializeWithHuggingFaceFile) {
   const auto model_path =
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_hf_tokenizer.litertlm";
-  auto model_file = ScopedFile::Open(model_path.string());
+  auto model_file = litert::ScopedFile::Open(model_path.string());
   ASSERT_TRUE(model_file.ok());
   LitertLmLoader loader(std::move(model_file.value()));
   ASSERT_GT(loader.GetHuggingFaceTokenizer()->Size(), 0);

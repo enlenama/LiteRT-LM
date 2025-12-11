@@ -31,10 +31,10 @@
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/ascii.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_buffer_ref.h"  // from @litert
 #include "runtime/components/model_resources.h"
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"
 #include "schema/core/litertlm_header_schema_generated.h"
 #include "schema/core/litertlm_read.h"
@@ -42,14 +42,13 @@
 namespace litert::lm {
 
 namespace {
-// Utility function to Creates a memory-mapped file from a ScopedFile.
+// Utility function to Creates a memory-mapped file from a litert::ScopedFile.
 absl::StatusOr<std::unique_ptr<MemoryMappedFile>> CreateMemoryMapFromScopedFile(
-    litert::lm::ScopedFile& scoped_file, uint64_t offset = 0,
-    uint64_t size = 0) {
+    litert::ScopedFile& scoped_file, uint64_t offset = 0, uint64_t size = 0) {
   if (!scoped_file.IsValid()) {
-    return absl::InvalidArgumentError("Invalid ScopedFile provided.");
+    return absl::InvalidArgumentError("Invalid litert::ScopedFile provided.");
   }
-  litert::lm::ScopedFile::PlatformFile platform_file = scoped_file.file();
+  litert::ScopedFile::PlatformFile platform_file = scoped_file.file();
   // For a read-only memory-mapped file:
   // TODO - b/454926463: Add support for different keys for more optimal loading
   // on Windows.
@@ -81,7 +80,7 @@ absl::Status LitertLmLoader::MapSection(BufferKey buffer_key,
     // If the begin offset is not aligned to the required platform alignment, we
     // need to map the section starting a bit earlier so that the data is
     // aligned.
-    auto& model_file = std::get<ScopedFile>(model_source_);
+    auto& model_file = std::get<litert::ScopedFile>(model_source_);
     size_t alignment = MemoryMappedFile::GetOffsetAlignment();
     uint64_t alignment_gap = begin_offset % alignment;
     uint64_t aligned_begin_offset = begin_offset - alignment_gap;
@@ -127,7 +126,7 @@ absl::Status LitertLmLoader::Initialize() {
     header_size = std::min(kLitertLmHeaderMaxSize, model_file_size);
     header_data = memory_mapped_model_file->data();
   } else {
-    auto& model_file = std::get<ScopedFile>(model_source_);
+    auto& model_file = std::get<litert::ScopedFile>(model_source_);
     ASSIGN_OR_RETURN(model_file_size, model_file.GetSize());
     header_size = std::min(kLitertLmHeaderMaxSize, model_file_size);
     ASSIGN_OR_RETURN(header_memory_mapped_file,

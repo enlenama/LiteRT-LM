@@ -25,6 +25,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_element_type.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
@@ -35,7 +36,6 @@
 #include "runtime/components/model_resources.h"
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/test_utils.h"  // IWYU pragma: keep
 
 namespace litert::lm {
@@ -461,10 +461,11 @@ TEST(LlmLiteRTCompiledModelExecutorUtilsTest,
   auto model_path =
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.task";
-  ASSERT_OK_AND_ASSIGN(auto model_file, ScopedFile::Open(model_path.string()));
+  ASSERT_OK_AND_ASSIGN(auto model_file,
+                       litert::ScopedFile::Open(model_path.string()));
 
-  auto model_assets =
-      ModelAssets::Create(std::make_shared<ScopedFile>(std::move(model_file)));
+  auto model_assets = ModelAssets::Create(
+      std::make_shared<litert::ScopedFile>(std::move(model_file)));
   ASSERT_OK(model_assets);
 
   ASSERT_OK_AND_ASSIGN(auto model_resources,

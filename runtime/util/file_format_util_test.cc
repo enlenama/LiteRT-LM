@@ -23,9 +23,9 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/test_utils.h"  // NOLINT
 
 namespace litert::lm {
@@ -81,11 +81,11 @@ TEST(FileFormatUtilTest, FileFormatFromRealFile) {
   std::string model_path_str = model_path.string();
 
   ASSERT_OK_AND_ASSIGN(auto scoped_file,
-                              ScopedFile::Open(model_path_str));
+                       litert::ScopedFile::Open(model_path_str));
   ASSERT_OK_AND_ASSIGN(auto mapped_file,
                        MemoryMappedFile::Create(scoped_file.file()));
   auto shared_scoped_file =
-      std::make_shared<ScopedFile>(std::move(scoped_file));
+      std::make_shared<litert::ScopedFile>(std::move(scoped_file));
   absl::string_view file_contents(
       reinterpret_cast<const char*>(mapped_file->data()),
       mapped_file->length());
@@ -119,17 +119,19 @@ TEST(FileFormatUtilTest, FileFormatFromModelAssets) {
   ASSERT_THAT(GetFileFormat(model_assets_path),
               IsOkAndHolds(FileFormat::LITERT_LM));
 
-  // 2. ModelAssets with ScopedFile.
-  ASSERT_OK_AND_ASSIGN(auto scoped_file, ScopedFile::Open(model_path_str));
+  // 2. ModelAssets with litert::ScopedFile.
+  ASSERT_OK_AND_ASSIGN(auto scoped_file,
+                       litert::ScopedFile::Open(model_path_str));
   auto shared_scoped_file =
-      std::make_shared<ScopedFile>(std::move(scoped_file));
+      std::make_shared<litert::ScopedFile>(std::move(scoped_file));
   ASSERT_OK_AND_ASSIGN(auto model_assets_sf,
                        ModelAssets::Create(shared_scoped_file));
   ASSERT_THAT(GetFileFormat(model_assets_sf),
               IsOkAndHolds(FileFormat::LITERT_LM));
 
   // 3. ModelAssets with MemoryMappedFile
-  ASSERT_OK_AND_ASSIGN(auto scoped_file2, ScopedFile::Open(model_path_str));
+  ASSERT_OK_AND_ASSIGN(auto scoped_file2,
+                       litert::ScopedFile::Open(model_path_str));
   ASSERT_OK_AND_ASSIGN(auto mapped_file,
                        MemoryMappedFile::Create(scoped_file2.file()));
   ASSERT_OK_AND_ASSIGN(auto model_assets_mmf,

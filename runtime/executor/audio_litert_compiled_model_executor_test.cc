@@ -26,6 +26,7 @@
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_element_type.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
@@ -35,7 +36,6 @@
 #include "litert/cc/litert_tensor_buffer_types.h"  // from @litert
 #include "runtime/executor/audio_executor_settings.h"
 #include "runtime/executor/executor_settings_base.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"  //NOLINT
 #include "runtime/util/test_utils.h"     //NOLINT
 
@@ -74,9 +74,9 @@ absl::StatusOr<TensorBuffer> CreateTensorBuffer(
 absl::StatusOr<std::unique_ptr<AudioLiteRtCompiledModelExecutor>>
 CreateAudioExecutor(Environment& env, const std::string& model_path,
                     int max_sequence_length, Backend backend) {
-  ASSIGN_OR_RETURN(auto model_file, litert::lm::ScopedFile::Open(model_path));
+  ASSIGN_OR_RETURN(auto model_file, litert::ScopedFile::Open(model_path));
   auto model_file_ptr =
-      std::make_shared<litert::lm::ScopedFile>(std::move(model_file));
+      std::make_shared<litert::ScopedFile>(std::move(model_file));
   ASSIGN_OR_RETURN(auto model_assets,
                    litert::lm::ModelAssets::Create(model_file_ptr));
   // Create the audio executor settings.

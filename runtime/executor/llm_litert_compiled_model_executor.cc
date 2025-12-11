@@ -34,6 +34,7 @@
 #include "absl/strings/str_join.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_common.h"  // from @litert
 #include "litert/cc/litert_compiled_model.h"  // from @litert
 #include "litert/cc/litert_element_type.h"  // from @litert
@@ -61,7 +62,6 @@
 #include "runtime/util/convert_tensor_buffer.h"
 #include "runtime/util/file_util.h"
 #include "runtime/util/lora_util.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"  // IWYU pragma: keep
 #include "tflite/delegates/xnnpack/xnnpack_delegate.h"  // from @litert
 
@@ -1191,7 +1191,7 @@ LlmLiteRtCompiledModelExecutorStatic::Create(
               weight_cache_path.c_str());
         } else {
           auto scoped_cache_file =
-              std::get<std::shared_ptr<ScopedFile>>(*weight_cache_file);
+              std::get<std::shared_ptr<litert::ScopedFile>>(*weight_cache_file);
           ASSIGN_OR_RETURN(auto duplicated, scoped_cache_file->Duplicate());
           ASSIGN_OR_RETURN(int fd, duplicated.Release());
           cpu_compilation_options->SetXNNPackWeightCacheFileDescriptor(fd);
@@ -1578,7 +1578,7 @@ LlmLiteRtCompiledModelExecutorDynamic::Create(
             weight_cache_path.c_str());
       } else {
         auto scoped_cache_file =
-            std::get<std::shared_ptr<ScopedFile>>(*weight_cache_file);
+            std::get<std::shared_ptr<litert::ScopedFile>>(*weight_cache_file);
         ASSIGN_OR_RETURN(auto duplicated, scoped_cache_file->Duplicate());
         ASSIGN_OR_RETURN(int fd, duplicated.Release());
         cpu_compilation_options->SetXNNPackWeightCacheFileDescriptor(fd);

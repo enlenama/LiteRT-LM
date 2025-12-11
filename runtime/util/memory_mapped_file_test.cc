@@ -27,7 +27,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
-#include "runtime/util/scoped_file.h"
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/test_utils.h"  // NOLINT
 
 namespace litert::lm {
@@ -68,7 +68,7 @@ TEST(MemoryMappedFile, SucceedsMappingOpenFile) {
 
   absl::StatusOr<std::unique_ptr<MemoryMappedFile>> file;
   {
-    auto handle = ScopedFile::Open(path.string());
+    auto handle = litert::ScopedFile::Open(path.string());
     ASSERT_OK(handle);
     file = MemoryMappedFile::Create(handle->file());
   }
@@ -83,7 +83,7 @@ TEST(MemoryMappedFile, SucceedsMappingMoveAndOpenFile) {
 
   absl::StatusOr<std::unique_ptr<MemoryMappedFile>> file;
   {
-    auto handle = ScopedFile::Open(path.string());
+    auto handle = litert::ScopedFile::Open(path.string());
     ASSERT_OK(handle);
     file = MemoryMappedFile::Create(handle->file());
   }
@@ -99,7 +99,7 @@ TEST(MemoryMappedFile, MapsValidScopedFile) {
   auto path = std::filesystem::path(::testing::TempDir()) / "file.txt";
   WriteFile(path.string(), "foo bar");
 
-  auto scoped_file = ScopedFile::Open(path.string());
+  auto scoped_file = litert::ScopedFile::Open(path.string());
   ASSERT_OK(scoped_file);
   {
     auto file = MemoryMappedFile::Create(scoped_file->file());
@@ -109,7 +109,7 @@ TEST(MemoryMappedFile, MapsValidScopedFile) {
   // Save handle to make sure it gets closed.
   auto handle = scoped_file->file();
   {
-    ScopedFile other_file = std::move(*scoped_file);
+    litert::ScopedFile other_file = std::move(*scoped_file);
     EXPECT_FALSE(MemoryMappedFile::Create(scoped_file->file()).ok());
     auto file = MemoryMappedFile::Create(other_file.file());
     ASSERT_OK(file);
@@ -125,7 +125,7 @@ TEST(MemoryMappedFile, SucceedsMappingLengthAndOffset) {
   file_contents += "foo bar";
   WriteFile(path.string(), file_contents);
 
-  auto scoped_file = *ScopedFile::Open(path.string());
+  auto scoped_file = *litert::ScopedFile::Open(path.string());
   {
     auto file = MemoryMappedFile::Create(scoped_file.file(), offset);
     ASSERT_OK(file);
@@ -194,7 +194,7 @@ TEST(MemoryMappedFile, ModifiesScopedFileWhenMutable) {
   auto path = std::filesystem::path(::testing::TempDir()) / "file.txt";
   WriteFile(path.string(), "foo bar");
 
-  auto scoped_file = ScopedFile::OpenWritable(path.string());
+  auto scoped_file = litert::ScopedFile::OpenWritable(path.string());
   ASSERT_OK(scoped_file);
 
   auto file = MemoryMappedFile::CreateMutable(scoped_file->file());

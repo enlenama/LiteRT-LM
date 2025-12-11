@@ -28,10 +28,10 @@
 #include "absl/log/absl_check.h"  // from @com_google_absl
 #include "absl/log/absl_log.h"  // from @com_google_absl
 #include "absl/status/status.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_buffer_ref.h"  // from @litert
 #include "runtime/components/model_resources.h"
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "schema/core/litertlm_header_schema_generated.h"
 #include "schema/core/litertlm_read.h"
 
@@ -85,7 +85,7 @@ class LitertLmLoader {
  public:
   // Creates a LitertLmLoader from the model file. The loader will read the
   // model header from and map the sections to the section buffers.
-  explicit LitertLmLoader(ScopedFile model_file)
+  explicit LitertLmLoader(litert::ScopedFile model_file)
       : model_source_(std::move(model_file)) {
     ABSL_CHECK_OK(Initialize());
   }
@@ -164,9 +164,10 @@ class LitertLmLoader {
   std::optional<litert::BufferRef<uint8_t>> GetSectionBuffer(
       BufferKey buffer_key);
 
-  // The model file to be loaded, can be either a ScopedFile or a
+  // The model file to be loaded, can be either a litert::ScopedFile or a
   // memory-mapped file.
-  std::variant<ScopedFile, std::shared_ptr<MemoryMappedFile>> model_source_;
+  std::variant<litert::ScopedFile, std::shared_ptr<MemoryMappedFile>>
+      model_source_;
 
   // The header of the model file. Use this to understand what sections are
   // available and their offsets.

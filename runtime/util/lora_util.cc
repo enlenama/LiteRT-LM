@@ -22,8 +22,8 @@
 #include "absl/memory/memory.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"
 #include "re2/re2.h"  // from @com_googlesource_code_re2
 
@@ -44,7 +44,7 @@ uint64_t AlignByN(uint64_t number, uint64_t n) {
 // Gets an offset and size which will be valid to pass to
 // MemoryMappedFile.
 absl::StatusOr<std::unique_ptr<MemoryMappedFileWithAutoAlignment>>
-MemoryMappedFileWithAutoAlignment::Create(ScopedFile::PlatformFile file,
+MemoryMappedFileWithAutoAlignment::Create(litert::ScopedFile::PlatformFile file,
                                           uint64_t offset, uint64_t size,
                                           absl::string_view key) {
   const size_t kAlignment = MemoryMappedFile::GetOffsetAlignment();

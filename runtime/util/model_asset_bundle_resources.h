@@ -23,8 +23,8 @@ limitations under the License.
 #include "absl/container/flat_hash_map.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/zip_utils.h"
 
 namespace litert::lm {
@@ -43,7 +43,7 @@ class ModelAssetBundleResources {
   // ModelResourcesCacheService.
   static absl::StatusOr<std::unique_ptr<ModelAssetBundleResources>> Create(
       const std::string& tag,
-      std::shared_ptr<ScopedFile> model_asset_bundle_file);
+      std::shared_ptr<litert::ScopedFile> model_asset_bundle_file);
 
   // Takes a reference to the provided model asset bundle file and creates
   // ModelAssetBundleResources from its contents. A non-empty tag
@@ -53,9 +53,9 @@ class ModelAssetBundleResources {
       const std::string& tag,
       std::shared_ptr<MemoryMappedFile> model_asset_bundle_file);
 
-  // Convenience method to create from a ScopedFile directly.
+  // Convenience method to create from a litert::ScopedFile directly.
   static absl::StatusOr<std::unique_ptr<ModelAssetBundleResources>> Create(
-      const std::string& tag, ScopedFile&& model_asset_bundle_file);
+      const std::string& tag, litert::ScopedFile&& model_asset_bundle_file);
 
   // ModelResources is neither copyable nor movable.
   ModelAssetBundleResources(const ModelAssetBundleResources&) = delete;

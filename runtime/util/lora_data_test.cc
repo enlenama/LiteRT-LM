@@ -26,10 +26,10 @@
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/str_cat.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_buffer_ref.h"  // from @litert
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"
 #include "runtime/util/test_utils.h"  // IWYU pragma: keep
 
@@ -82,7 +82,7 @@ class LoraDataTest : public ::testing::TestWithParam<LoraLoadType> {
   }
 
  private:
-  std::shared_ptr<const ScopedFile> scoped_file_;
+  std::shared_ptr<const litert::ScopedFile> scoped_file_;
   std::unique_ptr<MemoryMappedFile> mapped_file_;
 };
 
@@ -159,7 +159,7 @@ INSTANTIATE_TEST_SUITE_P(
         case LoraLoadType::kFilePath:
           return "FilePath";
         case LoraLoadType::kScopedFile:
-          return "ScopedFile";
+          return "litert::ScopedFile";
         case LoraLoadType::kBuffer:
           return "Buffer";
       }

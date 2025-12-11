@@ -25,8 +25,8 @@
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/executor/executor_settings_base.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/test_utils.h"  // IWYU pragma: keep
 
 namespace litert::lm {
@@ -365,8 +365,10 @@ TEST(GetWeightCacheFileTest, PreferScopedCacheFileToCacheDir) {
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.cache";
 
-  ASSERT_OK_AND_ASSIGN(auto cache_file, ScopedFile::Open(cache_path.string()));
-  auto shared_cache_file = std::make_shared<ScopedFile>(std::move(cache_file));
+  ASSERT_OK_AND_ASSIGN(auto cache_file,
+                       litert::ScopedFile::Open(cache_path.string()));
+  auto shared_cache_file =
+      std::make_shared<litert::ScopedFile>(std::move(cache_file));
 
   auto model_assets = ModelAssets::Create(kPathToModel1Tflite);
   ASSERT_OK(model_assets);
@@ -376,8 +378,9 @@ TEST(GetWeightCacheFileTest, PreferScopedCacheFileToCacheDir) {
   settings->SetCacheDir(std::string(kWeightCachePath));
 
   ASSERT_OK_AND_ASSIGN(auto weight_cache_file, settings->GetWeightCacheFile());
-  EXPECT_THAT(weight_cache_file,
-              VariantWith<std::shared_ptr<ScopedFile>>(shared_cache_file));
+  EXPECT_THAT(
+      weight_cache_file,
+      VariantWith<std::shared_ptr<litert::ScopedFile>>(shared_cache_file));
 }
 
 TEST(GetWeightCacheFileTest, PreferScopedCacheFileToScopedModelFile) {
@@ -388,20 +391,24 @@ TEST(GetWeightCacheFileTest, PreferScopedCacheFileToScopedModelFile) {
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.cache";
 
-  ASSERT_OK_AND_ASSIGN(auto model_file, ScopedFile::Open(model_path.string()));
-  ASSERT_OK_AND_ASSIGN(auto cache_file, ScopedFile::Open(cache_path.string()));
-  auto shared_cache_file = std::make_shared<ScopedFile>(std::move(cache_file));
+  ASSERT_OK_AND_ASSIGN(auto model_file,
+                       litert::ScopedFile::Open(model_path.string()));
+  ASSERT_OK_AND_ASSIGN(auto cache_file,
+                       litert::ScopedFile::Open(cache_path.string()));
+  auto shared_cache_file =
+      std::make_shared<litert::ScopedFile>(std::move(cache_file));
 
-  auto model_assets =
-      ModelAssets::Create(std::make_shared<ScopedFile>(std::move(model_file)));
+  auto model_assets = ModelAssets::Create(
+      std::make_shared<litert::ScopedFile>(std::move(model_file)));
   ASSERT_OK(model_assets);
   auto settings = LlmExecutorSettings::CreateDefault(*std::move(model_assets));
   EXPECT_OK(settings);
   settings->SetScopedCacheFile(shared_cache_file);
 
   ASSERT_OK_AND_ASSIGN(auto weight_cache_file, settings->GetWeightCacheFile());
-  EXPECT_THAT(weight_cache_file,
-              VariantWith<std::shared_ptr<ScopedFile>>(shared_cache_file));
+  EXPECT_THAT(
+      weight_cache_file,
+      VariantWith<std::shared_ptr<litert::ScopedFile>>(shared_cache_file));
 }
 
 TEST(GetWeightCacheFileTest, EmptyModelPath) {
@@ -420,7 +427,8 @@ TEST(GetWeightCacheFileTest, CacheDisabled) {
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.cache";
 
-  ASSERT_OK_AND_ASSIGN(auto cache_file, ScopedFile::Open(cache_path.string()));
+  ASSERT_OK_AND_ASSIGN(auto cache_file,
+                       litert::ScopedFile::Open(cache_path.string()));
 
   auto model_assets = ModelAssets::Create(kPathToModel1Tflite);
   ASSERT_OK(model_assets);
@@ -429,7 +437,7 @@ TEST(GetWeightCacheFileTest, CacheDisabled) {
   settings->SetCacheDir(":nocache");
   // This should be ignored in favor of the explicitly disabled cache dir.
   settings->SetScopedCacheFile(
-      std::make_shared<ScopedFile>(std::move(cache_file)));
+      std::make_shared<litert::ScopedFile>(std::move(cache_file)));
 
   EXPECT_THAT(settings->GetWeightCacheFile(), StatusIs(kInvalidArgument));
 }

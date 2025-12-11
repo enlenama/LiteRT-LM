@@ -34,8 +34,8 @@
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/str_format.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"  // NOLINT
 #include "schema/core/litertlm_header.h"
 #include "schema/core/litertlm_header_schema_generated.h"
@@ -242,10 +242,9 @@ absl::Status ReadSectionIntoTFLiteMappedFile(
   size_t model_size = end_offset - begin_offset;
 
   // Create the scoped file
-  auto model_file = lm::ScopedFile::Open(litertlm_path);
+  auto model_file = litert::ScopedFile::Open(litertlm_path);
 
-  litert::lm::ScopedFile::PlatformFile platform_file =
-      model_file.value().file();
+  litert::ScopedFile::PlatformFile platform_file = model_file.value().file();
 
   absl::StatusOr<std::unique_ptr<MemoryMappedFile>> mmap_status =
       litert::lm::MemoryMappedFile::Create(platform_file, begin_offset,

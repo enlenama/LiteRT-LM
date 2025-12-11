@@ -21,9 +21,9 @@
 
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_buffer_ref.h"  // from @litert
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 
 namespace litert::lm {
 
@@ -42,8 +42,8 @@ class MemoryMappedFileWithAutoAlignment {
   // @param key An optional key for optimizing multiple mmaps.
   // @return A unique pointer to the created instance or an error status.
   static absl::StatusOr<std::unique_ptr<MemoryMappedFileWithAutoAlignment>>
-  Create(ScopedFile::PlatformFile file, uint64_t offset = 0, uint64_t size = 0,
-         absl::string_view key = "");
+  Create(litert::ScopedFile::PlatformFile file, uint64_t offset = 0,
+         uint64_t size = 0, absl::string_view key = "");
 
   ~MemoryMappedFileWithAutoAlignment() = default;
 

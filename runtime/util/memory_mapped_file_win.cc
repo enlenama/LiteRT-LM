@@ -17,8 +17,8 @@
 #include <cstddef>
 
 #include "absl/cleanup/cleanup.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"
 
 namespace litert::lm {
@@ -96,7 +96,7 @@ absl::StatusOr<std::unique_ptr<MemoryMappedFile>> CreateImpl(HANDLE hfile,
       << "Offset must be a multiple of allocation granularity: " << offset
       << ", " << MemoryMappedFile::GetOffsetAlignment();
 
-  ASSIGN_OR_RETURN(size_t file_size, ScopedFile::GetSize(hfile));
+  ASSIGN_OR_RETURN(size_t file_size, litert::ScopedFile::GetSize(hfile));
   RET_CHECK_GE(file_size, length + offset) << "Length and offset too large.";
   if (length == 0) {
     length = file_size - offset;
@@ -140,7 +140,7 @@ size_t MemoryMappedFile::GetOffsetAlignment() {
 // static
 absl::StatusOr<std::unique_ptr<MemoryMappedFile>> MemoryMappedFile::Create(
     absl::string_view path) {
-  ASSIGN_OR_RETURN(auto scoped_file, ScopedFile::Open(path));
+  ASSIGN_OR_RETURN(auto scoped_file, litert::ScopedFile::Open(path));
   return CreateImpl(scoped_file.file(), 0, 0, nullptr, /*writable=*/false);
 }
 
@@ -154,7 +154,7 @@ absl::StatusOr<std::unique_ptr<MemoryMappedFile>> MemoryMappedFile::Create(
 // static
 absl::StatusOr<std::unique_ptr<MemoryMappedFile>>
 MemoryMappedFile::CreateMutable(absl::string_view path) {
-  ASSIGN_OR_RETURN(auto scoped_file, ScopedFile::OpenWritable(path));
+  ASSIGN_OR_RETURN(auto scoped_file, litert::ScopedFile::OpenWritable(path));
   return CreateImpl(scoped_file.file(), 0, 0, nullptr, /*writable=*/true);
 }
 

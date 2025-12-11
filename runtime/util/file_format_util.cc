@@ -23,9 +23,9 @@
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/match.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"  //NOLINT
 
 namespace litert::lm {
@@ -61,7 +61,8 @@ absl::StatusOr<FileFormat> GetFileFormatFromPath(absl::string_view model_path) {
 }
 
 absl::StatusOr<FileFormat> GetFileFormat(
-    absl::string_view model_path, std::shared_ptr<ScopedFile> scoped_file) {
+    absl::string_view model_path,
+    std::shared_ptr<litert::ScopedFile> scoped_file) {
   // Trust the extension of the file path, if it matches a known format.
   auto format_from_path = GetFileFormatFromPath(model_path);
   if (format_from_path.ok()) {
@@ -72,7 +73,7 @@ absl::StatusOr<FileFormat> GetFileFormat(
   if (scoped_file) {
     // Map the first few bytes of the file.
     ASSIGN_OR_RETURN(size_t file_size,  // NOLINT
-                     ScopedFile::GetSize(scoped_file->file()));
+                     litert::ScopedFile::GetSize(scoped_file->file()));
     const uint64_t bytes_to_map = std::min(file_size, kMaxMagicSignatureLength);
     ASSIGN_OR_RETURN(auto mapped_file,  // NOLINT
                      MemoryMappedFile::Create(scoped_file->file(), /*offset=*/0,

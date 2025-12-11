@@ -28,9 +28,9 @@
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "flatbuffers/buffer.h"  // from @flatbuffers
 #include "flatbuffers/vector.h"  // from @flatbuffers
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_buffer_ref.h"  // from @litert
 #include "runtime/util/lora_util.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"
 #include "tflite/model_builder.h"  // from @litert
 #include "tflite/schema/schema_generated.h"  // from @litert
@@ -146,14 +146,14 @@ class FileLoraData : public FlatBufferLoraData {
  public:
   // Constructor for FileLoraData.
   //
-  // @param file A shared_ptr to the ScopedFile object representing the LoRA
-  // data file.
+  // @param file A shared_ptr to the litert::ScopedFile object representing the
+  // LoRA data file.
   // @param region A unique_ptr to the MemoryMappedFileWithAutoAlignment object
   // representing the memory mapped region of the FlatBufferModel metadata.
   // @param model A unique_ptr to the FlatBufferModel object representing the
   // LoRA data metadata.
   explicit FileLoraData(
-      std::shared_ptr<const ScopedFile> file,
+      std::shared_ptr<const litert::ScopedFile> file,
       std::unique_ptr<MemoryMappedFileWithAutoAlignment> region,
       std::unique_ptr<tflite::FlatBufferModel> model, const std::string& key)
       : file_(std::move(file)),
@@ -178,7 +178,7 @@ class FileLoraData : public FlatBufferLoraData {
   }
 
  private:
-  std::shared_ptr<const ScopedFile> file_;
+  std::shared_ptr<const litert::ScopedFile> file_;
   std::unique_ptr<MemoryMappedFileWithAutoAlignment> region_;
   std::unique_ptr<tflite::FlatBufferModel> model_;
   const std::string key_;
@@ -219,13 +219,14 @@ class BufferLoraData : public FlatBufferLoraData {
 // static
 absl::StatusOr<std::unique_ptr<LoraData>> LoraData::CreateFromFilePath(
     absl::string_view file_path) {
-  ASSIGN_OR_RETURN(auto file, ScopedFile::Open(file_path));
-  return CreateFromScopedFile(std::make_shared<ScopedFile>(std::move(file)));
+  ASSIGN_OR_RETURN(auto file, litert::ScopedFile::Open(file_path));
+  return CreateFromScopedFile(
+      std::make_shared<litert::ScopedFile>(std::move(file)));
 }
 
 // static
 absl::StatusOr<std::unique_ptr<LoraData>> LoraData::CreateFromScopedFile(
-    std::shared_ptr<const ScopedFile> file) {
+    std::shared_ptr<const litert::ScopedFile> file) {
   static std::atomic<uint32_t> next_key{0};
   const std::string key{absl::StrCat("FileLoraData_", next_key.fetch_add(1))};
   ASSIGN_OR_RETURN(auto mapped_file, MemoryMappedFileWithAutoAlignment::Create(

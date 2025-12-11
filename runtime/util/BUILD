@@ -119,11 +119,11 @@ cc_library(
     deps = [
         ":litert_status_util",
         ":memory_mapped_file",
-        ":scoped_file",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
+        "@litert//litert/cc/internal:scoped_file",
         "//runtime/executor:executor_settings_base",
     ],
 )
@@ -135,13 +135,12 @@ cc_test(
     deps = [
         ":file_format_util",
         ":memory_mapped_file",
-        ":scoped_file",
         ":test_utils",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:string_view",
+        "@litert//litert/cc/internal:scoped_file",
         "//runtime/executor:executor_settings_base",
-        "//runtime/executor:llm_executor_settings",
     ],
 )
 
@@ -279,12 +278,12 @@ cc_library(
     ],
     deps = [
         ":litert_status_util",
-        ":scoped_file",
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@litert//litert/cc/internal:scoped_file",
     ],
 )
 
@@ -293,11 +292,11 @@ cc_test(
     srcs = ["memory_mapped_file_test.cc"],
     deps = [
         ":memory_mapped_file",
-        ":scoped_file",
         ":test_utils",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:string_view",
+        "@litert//litert/cc/internal:scoped_file",
     ],
 )
 
@@ -314,6 +313,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
+        "@litert//litert/cc/internal:scoped_file",
     ],
 )
 
@@ -321,12 +321,12 @@ cc_test(
     name = "scoped_file_test",
     srcs = ["scoped_file_test.cc"],
     deps = [
-        ":scoped_file",
         ":test_utils",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:string_view",
+        "@litert//litert/cc/internal:scoped_file",
     ],
 )
 
@@ -338,7 +338,6 @@ cc_library(
     deps = [
         ":litert_status_util",
         ":memory_mapped_file",
-        ":scoped_file",
         ":zip_utils",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/memory",
@@ -346,6 +345,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
+        "@litert//litert/cc/internal:scoped_file",
     ],
 )
 
@@ -423,7 +423,6 @@ cc_library(
     deps = [
         ":litert_status_util",
         ":memory_mapped_file",
-        ":scoped_file",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
@@ -431,6 +430,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
         "@litert//litert/cc:litert_buffer_ref",
+        "@litert//litert/cc/internal:scoped_file",
         "//runtime/components:model_resources",
         "//schema/core:litertlm_header_schema",
         "//schema/core:litertlm_read",
@@ -468,13 +468,13 @@ cc_library(
     deps = [
         ":litert_status_util",
         ":lora_util",
-        ":scoped_file",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
         "@flatbuffers//:runtime_cc",
         "@litert//litert/cc:litert_buffer_ref",
+        "@litert//litert/cc/internal:scoped_file",
         "@litert//tflite:framework",
         "@litert//tflite/schema:schema_fbs",
     ],
@@ -488,13 +488,13 @@ cc_test(
         ":litert_status_util",
         ":lora_data",
         ":memory_mapped_file",
-        ":scoped_file",
         ":test_utils",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@litert//litert/cc:litert_buffer_ref",
+        "@litert//litert/cc/internal:scoped_file",
         "//runtime/executor:executor_settings_base",
     ],
 )
@@ -506,11 +506,11 @@ cc_library(
     deps = [
         ":litert_status_util",
         ":memory_mapped_file",
-        ":scoped_file",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:string_view",
         "@litert//litert/cc:litert_buffer_ref",
+        "@litert//litert/cc/internal:scoped_file",
         "@com_googlesource_code_re2//:re2",
     ],
 )
@@ -521,11 +521,11 @@ cc_test(
     deps = [
         ":lora_util",
         ":memory_mapped_file",
-        ":scoped_file",
         ":test_utils",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:string_view",
+        "@litert//litert/cc/internal:scoped_file",
     ],
 )
 

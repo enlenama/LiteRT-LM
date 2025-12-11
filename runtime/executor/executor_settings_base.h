@@ -25,8 +25,8 @@
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 
 namespace litert::lm {
 
@@ -108,7 +108,7 @@ std::ostream& operator<<(std::ostream& os, const FileFormat& file_format);
 class ModelAssets {
  public:
   static absl::StatusOr<ModelAssets> Create(
-      std::shared_ptr<ScopedFile> model_file);
+      std::shared_ptr<litert::ScopedFile> model_file);
   static absl::StatusOr<ModelAssets> Create(absl::string_view model_path);
   static absl::StatusOr<ModelAssets> Create(
       std::shared_ptr<MemoryMappedFile> model_file);
@@ -116,10 +116,12 @@ class ModelAssets {
   // Convenience factory function to create a ModelAssets with both a model
   // path and file. Will use the scoped file if both are provided.
   static absl::StatusOr<ModelAssets> Create(
-      std::shared_ptr<ScopedFile> model_file, absl::string_view model_path);
+      std::shared_ptr<litert::ScopedFile> model_file,
+      absl::string_view model_path);
 
   bool HasScopedFile() const {
-    return std::holds_alternative<std::shared_ptr<ScopedFile>>(path_or_file_);
+    return std::holds_alternative<std::shared_ptr<litert::ScopedFile>>(
+        path_or_file_);
   }
   bool HasMemoryMappedFile() const {
     return std::holds_alternative<std::shared_ptr<MemoryMappedFile>>(
@@ -129,12 +131,13 @@ class ModelAssets {
   // Returns the model file if it was created with the respective variant,
   // otherwise returns an error.
   absl::StatusOr<absl::string_view> GetPath() const;
-  absl::StatusOr<std::shared_ptr<ScopedFile>> GetScopedFile() const;
+  absl::StatusOr<std::shared_ptr<litert::ScopedFile>> GetScopedFile() const;
   absl::StatusOr<std::shared_ptr<MemoryMappedFile>> GetMemoryMappedFile() const;
 
   // Convenience method to get a read-only scoped file to the model file
   // regardless of whether this instance was created from a path or scoped file.
-  absl::StatusOr<std::shared_ptr<ScopedFile>> GetOrCreateScopedFile() const;
+  absl::StatusOr<std::shared_ptr<litert::ScopedFile>> GetOrCreateScopedFile()
+      const;
 
   FakeWeightsMode fake_weights_mode() const { return fake_weights_mode_; }
 
@@ -143,13 +146,13 @@ class ModelAssets {
   }
 
  private:
-  explicit ModelAssets(std::shared_ptr<ScopedFile> model_file);
+  explicit ModelAssets(std::shared_ptr<litert::ScopedFile> model_file);
   explicit ModelAssets(absl::string_view model_path);
   explicit ModelAssets(std::shared_ptr<MemoryMappedFile> model_file);
 
   // TODO: b/417814685 - Consider supporting multiple model files if the need
   // case arises.
-  std::variant<std::string, std::shared_ptr<ScopedFile>,
+  std::variant<std::string, std::shared_ptr<litert::ScopedFile>,
                std::shared_ptr<MemoryMappedFile>>
       path_or_file_;
 
@@ -186,18 +189,17 @@ class ExecutorSettingsBase {
   //   2. the file path of the weight cache file, based on the given cache
   //      directory and/or model path. Will append `suffix`.
   //   3. an error if a weight cache file could not be determined.
-  absl::StatusOr<
-      std::variant<std::string, std::shared_ptr<litert::lm::ScopedFile>>>
+  absl::StatusOr<std::variant<std::string, std::shared_ptr<litert::ScopedFile>>>
   GetWeightCacheFile(absl::string_view suffix = ".cache") const;
   // Prefer to use `GetWeightCacheFile()` if possible.
   const std::string& GetCacheDir() const { return cache_dir_; }
   // Prefer to use `GetWeightCacheFile()` if possible.
-  std::shared_ptr<litert::lm::ScopedFile> GetScopedCacheFile() const {
+  std::shared_ptr<litert::ScopedFile> GetScopedCacheFile() const {
     return scoped_cache_file_;
   }
   // Setter APIs.
   void SetCacheDir(const std::string& cache_dir) { cache_dir_ = cache_dir; }
-  void SetScopedCacheFile(std::shared_ptr<litert::lm::ScopedFile> cache_file) {
+  void SetScopedCacheFile(std::shared_ptr<litert::ScopedFile> cache_file) {
     scoped_cache_file_ = std::move(cache_file);
   }
 
@@ -221,7 +223,7 @@ class ExecutorSettingsBase {
 
   // Open file for writing the weight cache to and later loading cache from.
   // If set, this should be preferred over the `cache_dir_`.
-  std::shared_ptr<litert::lm::ScopedFile> scoped_cache_file_;
+  std::shared_ptr<litert::ScopedFile> scoped_cache_file_;
 
   // Optional setting for specific activation data type. If not set, the
   // default activation data type for each OS & backend will be used. Setting

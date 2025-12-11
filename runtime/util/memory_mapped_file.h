@@ -24,7 +24,7 @@
 #include "absl/memory/memory.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
-#include "runtime/util/scoped_file.h"
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 
 namespace litert::lm {
 
@@ -50,8 +50,8 @@ class MemoryMappedFile {
   // not take ownership of the passed handle. The `key` passed here is an
   // optimization when mapping the same file with different offsets.
   static absl::StatusOr<std::unique_ptr<MemoryMappedFile>> Create(
-      ScopedFile::PlatformFile file, uint64_t offset = 0u, uint64_t length = 0u,
-      absl::string_view key = "");
+      litert::ScopedFile::PlatformFile file, uint64_t offset = 0u,
+      uint64_t length = 0u, absl::string_view key = "");
 
   // Creates a mutable MemoryMappedFile object, any modification through data()
   // pointer will be carried over to the underlying path.
@@ -61,8 +61,8 @@ class MemoryMappedFile {
   // not take ownership of the passed handle. The `key` passed here is an
   // optimization when mapping the same file with different offsets.
   static absl::StatusOr<std::unique_ptr<MemoryMappedFile>> CreateMutable(
-      ScopedFile::PlatformFile file, uint64_t offset = 0u, uint64_t length = 0u,
-      absl::string_view key = "");
+      litert::ScopedFile::PlatformFile file, uint64_t offset = 0u,
+      uint64_t length = 0u, absl::string_view key = "");
 
   virtual ~MemoryMappedFile() = default;
 

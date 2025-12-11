@@ -22,13 +22,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/test/matchers.h"  // from @litert
 #include "runtime/components/model_resources_litert_lm.h"
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/executor/vision_executor_settings.h"
 #include "runtime/util/litert_lm_loader.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/test_utils.h"  // IWYU pragma: keep
 
 namespace litert::lm {
@@ -46,7 +46,8 @@ TEST(VisionLiteRtCompiledModelExecutorTest, CreateExecutorTest) {
       std::filesystem::path(::testing::SrcDir()) /
       "litert_lm/runtime/testdata/test_lm.litertlm";
 
-  ASSERT_OK_AND_ASSIGN(auto scoped_file, ScopedFile::Open(model_path.string()));
+  ASSERT_OK_AND_ASSIGN(auto scoped_file,
+                       litert::ScopedFile::Open(model_path.string()));
   auto loader = std::make_unique<LitertLmLoader>(std::move(scoped_file));
   ASSERT_OK_AND_ASSIGN(auto resources,
                        ModelResourcesLitertLm::Create(std::move(loader)));

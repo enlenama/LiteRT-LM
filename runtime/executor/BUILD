@@ -80,10 +80,10 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@litert//litert/cc/internal:scoped_file",
         "//runtime/util:file_util",
         "//runtime/util:litert_status_util",
         "//runtime/util:memory_mapped_file",
-        "//runtime/util:scoped_file",
     ],
 )
 
@@ -115,6 +115,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@litert//litert/cc/internal:scoped_file",
         "//runtime/components:model_resources",
         "//runtime/components:model_resources_litert_lm",
         "//runtime/components:model_resources_task",
@@ -125,7 +126,6 @@ cc_library(
         "//runtime/util:litert_status_util",
         "//runtime/util:memory_mapped_file",
         "//runtime/util:model_asset_bundle_resources",
-        "//runtime/util:scoped_file",
     ] + select({
         "@litert//litert:litert_link_capi_so": [
             "@litert//litert/cc:litert_api_with_dynamic_runtime",
@@ -157,10 +157,10 @@ cc_test(
         "@litert//litert/cc:litert_ranked_tensor_type",
         "@litert//litert/cc:litert_tensor_buffer",
         "@litert//litert/cc:litert_tensor_buffer_types",
+        "@litert//litert/cc/internal:scoped_file",
         "@litert//litert/test:matchers",
         "//runtime/components:model_resources",
         "//runtime/util:memory_mapped_file",
-        "//runtime/util:scoped_file",
         "//runtime/util:test_utils",
     ],
 )
@@ -245,6 +245,7 @@ cc_library(
         "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/types:span",
         "@litert//litert/cc:litert_tensor_buffer_types",
+        "@litert//litert/cc/internal:scoped_file",
         "//runtime/components:model_resources",
         "//runtime/components:model_resources_litert_lm",
         "//runtime/components:model_resources_task",
@@ -255,7 +256,6 @@ cc_library(
         "//runtime/util:file_util",
         "//runtime/util:litert_status_util",
         "//runtime/util:lora_util",
-        "//runtime/util:scoped_file",
         "@litert//tflite/delegates/xnnpack:xnnpack_delegate",
     ] + select({
         "@litert//litert:litert_link_capi_so": [
@@ -300,6 +300,7 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
+        "@litert//litert/cc/internal:scoped_file",
         "@litert//litert/test:matchers",
         "//runtime/components:model_resources",
         "//runtime/components:model_resources_litert_lm",
@@ -311,7 +312,6 @@ cc_test(
         "//runtime/util:litert_lm_loader",
         "//runtime/util:litert_status_util",
         "//runtime/util:model_asset_bundle_resources",
-        "//runtime/util:scoped_file",
         "//runtime/util:test_utils",
     ] + select({
         "@litert//litert:litert_link_capi_so": [
@@ -370,13 +370,13 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@litert//litert/cc/internal:scoped_file",
         "@litert//litert/test:matchers",
         "//runtime/components:model_resources",
         "//runtime/components:model_resources_litert_lm",
         "//runtime/util:litert_lm_loader",
         "//runtime/util:litert_status_util",
         "//runtime/util:model_asset_bundle_resources",
-        "//runtime/util:scoped_file",
         "//runtime/util:test_utils",
     ] + select({
         "@litert//litert:litert_link_capi_so": [
@@ -561,7 +561,7 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "//runtime/util:scoped_file",
+        "@litert//litert/cc/internal:scoped_file",
         "//runtime/util:test_utils",
     ],
 )
@@ -678,10 +678,10 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@litert//litert/cc/internal:scoped_file",
         "@litert//litert/test:matchers",
         "//runtime/components:model_resources_litert_lm",
         "//runtime/util:litert_lm_loader",
-        "//runtime/util:scoped_file",
         "//runtime/util:test_utils",
     ] + select({
         "@litert//litert:litert_link_capi_so": [
@@ -777,9 +777,9 @@ cc_test(
         "@litert//litert/cc:litert_model",
         "@litert//litert/cc:litert_tensor_buffer",
         "@litert//litert/cc:litert_tensor_buffer_types",
+        "@litert//litert/cc/internal:scoped_file",
         "@litert//litert/test:matchers",
         "//runtime/util:litert_status_util",
-        "//runtime/util:scoped_file",
         "//runtime/util:test_utils",
     ] + select({
         "@litert//litert:litert_link_capi_so": [

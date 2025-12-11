@@ -19,8 +19,8 @@
 
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/executor/executor_settings_base.h"
-#include "runtime/util/scoped_file.h"
 
 namespace litert::lm {
 
@@ -38,7 +38,7 @@ absl::StatusOr<FileFormat> GetFileFormatFromPath(absl::string_view model_path);
 // if provided.
 absl::StatusOr<FileFormat> GetFileFormat(
     absl::string_view model_path,
-    std::shared_ptr<ScopedFile> scoped_file = nullptr);
+    std::shared_ptr<litert::ScopedFile> scoped_file = nullptr);
 
 // Infer the file format from the model assets. This will first try to infer the
 // format from the memory mapped file contents, and if that fails, will attempt

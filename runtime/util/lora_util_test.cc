@@ -25,8 +25,8 @@
 #include <gtest/gtest.h>
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/test_utils.h"  // IWYU pragma: keep
 
 namespace litert::lm {
@@ -50,7 +50,7 @@ TEST(MemoryMappedFileWithAutoAlignment, SucceedsMapping) {
   auto path = std::filesystem::path(::testing::TempDir()) / "file.txt";
   WriteFile(path.string(), "foo bar");
 
-  auto handle = ScopedFile::Open(path.string());
+  auto handle = litert::ScopedFile::Open(path.string());
   ASSERT_OK(handle);
 
   auto file = MemoryMappedFileWithAutoAlignment::Create(handle->file());
@@ -71,7 +71,7 @@ TEST(MemoryMappedFileWithAutoAlignment, SucceedsMappingLengthAndOffset) {
   file_contents += "END";
   WriteFile(path.string(), file_contents);
 
-  auto scoped_file = *ScopedFile::Open(path.string());
+  auto scoped_file = *litert::ScopedFile::Open(path.string());
 
   // Case 1: offset = 0, size = 0 (whole file)
   {
@@ -139,7 +139,7 @@ TEST(MemoryMappedFileWithAutoAlignment, SucceedsMappingLengthAndOffset) {
 
 TEST(MemoryMappedFileWithAutoAlignment, FailsMappingNonExistentFile) {
   auto path = std::filesystem::path(::testing::TempDir()) / "bad.txt";
-  auto handle = ScopedFile::Open(path.string());
+  auto handle = litert::ScopedFile::Open(path.string());
   EXPECT_FALSE(handle.ok());
 }
 

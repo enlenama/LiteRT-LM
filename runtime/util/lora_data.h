@@ -20,8 +20,8 @@
 
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "litert/cc/litert_buffer_ref.h"  // from @litert
-#include "runtime/util/scoped_file.h"
 
 namespace litert::lm {
 
@@ -36,13 +36,13 @@ class LoraData {
   // @return A unique_ptr to the LoraData instance, or an error status.
   static absl::StatusOr<std::unique_ptr<LoraData>> CreateFromFilePath(
       absl::string_view file_path);
-  // Creates a LoraData instance from a ScopedFile object.
+  // Creates a LoraData instance from a litert::ScopedFile object.
   //
-  // @param file A shared_ptr to the ScopedFile object representing the LoRA
-  // data file.
+  // @param file A shared_ptr to the litert::ScopedFile object representing the
+  // LoRA data file.
   // @return A unique_ptr to the LoraData instance, or an error status.
   static absl::StatusOr<std::unique_ptr<LoraData>> CreateFromScopedFile(
-      std::shared_ptr<const ScopedFile> file);
+      std::shared_ptr<const litert::ScopedFile> file);
 
   // Create a LoraData instance from a BufferRef object.
   //

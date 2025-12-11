@@ -25,8 +25,8 @@
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"
 
 namespace litert::lm {
@@ -92,7 +92,7 @@ size_t MemoryMappedFile::GetOffsetAlignment() { return getpagesize(); }
 // static
 absl::StatusOr<std::unique_ptr<MemoryMappedFile>> MemoryMappedFile::Create(
     absl::string_view path) {
-  ASSIGN_OR_RETURN(auto scoped_file, ScopedFile::Open(path));
+  ASSIGN_OR_RETURN(auto scoped_file, litert::ScopedFile::Open(path));
   return Create(scoped_file.file());
 }
 
@@ -103,7 +103,7 @@ absl::StatusOr<std::unique_ptr<MemoryMappedFile>> MemoryMappedFile::Create(
       << "Offset must be a multiple of page size : " << offset << ", "
       << GetOffsetAlignment();
 
-  ASSIGN_OR_RETURN(size_t file_size, ScopedFile::GetSize(file));
+  ASSIGN_OR_RETURN(size_t file_size, litert::ScopedFile::GetSize(file));
   RET_CHECK_GE(file_size, length + offset) << "Length and offset too large.";
   if (length == 0) {
     length = file_size - offset;
@@ -125,7 +125,7 @@ absl::StatusOr<std::unique_ptr<MemoryMappedFile>> MemoryMappedFile::Create(
 
 absl::StatusOr<std::unique_ptr<MemoryMappedFile>>
 MemoryMappedFile::CreateMutable(absl::string_view path) {
-  ASSIGN_OR_RETURN(auto scoped_file, ScopedFile::OpenWritable(path));
+  ASSIGN_OR_RETURN(auto scoped_file, litert::ScopedFile::OpenWritable(path));
   return CreateMutable(scoped_file.file());
 }
 
@@ -136,7 +136,7 @@ MemoryMappedFile::CreateMutable(int file, uint64_t offset, uint64_t length,
       << "Offset must be a multiple of page size : " << offset << ", "
       << GetOffsetAlignment();
 
-  ASSIGN_OR_RETURN(size_t file_size, ScopedFile::GetSize(file));
+  ASSIGN_OR_RETURN(size_t file_size, litert::ScopedFile::GetSize(file));
   RET_CHECK_GE(file_size, length + offset) << "Length and offset too large.";
   if (length == 0) {
     length = file_size - offset;

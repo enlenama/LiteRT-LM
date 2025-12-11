@@ -28,8 +28,8 @@ limitations under the License.
 #include "absl/strings/str_join.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/memory_mapped_file.h"
-#include "runtime/util/scoped_file.h"
 #include "runtime/util/status_macros.h"  // IWYU pragma: keep
 #include "runtime/util/zip_utils.h"
 
@@ -39,7 +39,7 @@ namespace litert::lm {
 absl::StatusOr<std::unique_ptr<ModelAssetBundleResources>>
 ModelAssetBundleResources::Create(
     const std::string& tag,
-    std::shared_ptr<ScopedFile> model_asset_bundle_file) {
+    std::shared_ptr<litert::ScopedFile> model_asset_bundle_file) {
   if (!model_asset_bundle_file || !model_asset_bundle_file->IsValid()) {
     return absl::InvalidArgumentError(
         "The model asset bundle file is not valid.");
@@ -80,10 +80,10 @@ ModelAssetBundleResources::Create(
 
 // static
 absl::StatusOr<std::unique_ptr<ModelAssetBundleResources>>
-ModelAssetBundleResources::Create(const std::string& tag,
-                                  ScopedFile&& model_asset_bundle_file) {
-  return Create(
-      tag, std::make_shared<ScopedFile>(std::move(model_asset_bundle_file)));
+ModelAssetBundleResources::Create(
+    const std::string& tag, litert::ScopedFile&& model_asset_bundle_file) {
+  return Create(tag, std::make_shared<litert::ScopedFile>(
+                         std::move(model_asset_bundle_file)));
 }
 
 ModelAssetBundleResources::ModelAssetBundleResources(
