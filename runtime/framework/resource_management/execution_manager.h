@@ -259,6 +259,17 @@ class ExecutionManager {
       absl::AnyInvocable<void(absl::StatusOr<Responses>)> absl_nonnull callback)
       ABSL_LOCKS_EXCLUDED(session_and_task_lookup_mutex_);
 
+  // Finishes the task with the given task ID, responses, and callback. If the
+  // task fails, the error will be logged.
+  // - task_id: The task ID of the task.
+  // - responses: The responses of the task.
+  // - callback: The callback function.
+  // Note: FinishTaskAndLogErrors will acquire the task lookup mutex.
+  void FinishTaskAndLogErrors(
+      TaskId task_id, absl::StatusOr<Responses> responses,
+      absl::AnyInvocable<void(absl::StatusOr<Responses>)> absl_nonnull callback)
+      ABSL_LOCKS_EXCLUDED(session_and_task_lookup_mutex_);
+
   // Returns all following tasks that are waiting.
   // - task_id: The task ID of the task.
   // Returns:

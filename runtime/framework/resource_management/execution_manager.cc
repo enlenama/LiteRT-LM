@@ -282,12 +282,7 @@ absl::Status ExecutionManager::FinishTask(
       [&](absl::Status status) ABSL_EXCLUSIVE_LOCKS_REQUIRED(
           session_and_task_lookup_mutex_) -> absl::Status {
     callback(status);
-    SessionId session_id = task_lookup_.at(task_id).session_id;
-    if (session_lookup_.contains(session_id) &&
-        session_lookup_.at(session_id)->active_tasks.contains(task_id)) {
-      session_lookup_.at(task_lookup_.at(task_id).session_id)
-          ->active_tasks.erase(task_id);
-    }
+    RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
     return status;
   };
   {
@@ -362,6 +357,16 @@ absl::Status ExecutionManager::FinishTask(
     }
   }
   return absl::OkStatus();
+}
+
+void ExecutionManager::FinishTaskAndLogErrors(
+    TaskId task_id, absl::StatusOr<Responses> responses,
+    absl::AnyInvocable<void(absl::StatusOr<Responses>)> absl_nonnull callback) {
+  auto status = FinishTask(task_id, std::move(responses), std::move(callback));
+  if (!status.ok()) {
+    ABSL_LOG(ERROR) << "Failed to finish task: " << status
+                    << " with task id: " << task_id;
+  }
 }
 
 absl::StatusOr<absl::flat_hash_set<TaskId>>
@@ -568,9 +573,8 @@ absl::Status ExecutionManager::AddPrefillTask(
   auto task = [this, task_id, inputs = std::move(inputs)]() mutable -> void {
     auto session_info_and_callback = StartTask(task_id);
     if (!session_info_and_callback.ok()) {
-      ABSL_LOG(INFO) << "Failed to start task: "
-                     << session_info_and_callback.status()
-                     << " with task id: " << task_id;
+      FinishTaskAndLogErrors(task_id, session_info_and_callback.status(),
+                             [](absl::StatusOr<Responses> responses) {});
       return;
     }
     auto [session_info, callback] =
@@ -583,14 +587,16 @@ absl::Status ExecutionManager::AddPrefillTask(
 
     auto executor_inputs = ProcessAndCombineContents(inputs);
     if (!executor_inputs.ok()) {
-      callback(executor_inputs.status());
+      FinishTaskAndLogErrors(task_id, executor_inputs.status(),
+                             std::move(callback));
       return;
     }
 
     auto llm_executor = resource_manager_->AcquireExecutorWithContextHandler(
         session_info->context_handler);
     if (!llm_executor.ok()) {
-      callback(llm_executor.status());
+      FinishTaskAndLogErrors(task_id, llm_executor.status(),
+                             std::move(callback));
       return;
     }
 
@@ -598,31 +604,30 @@ absl::Status ExecutionManager::AddPrefillTask(
         Tasks::Prefill(*llm_executor.value(), *executor_inputs,
                        /*wait_for_completion=*/true,
                        /*benchmark_info=*/session_info->benchmark_info);
+    if (!responses.ok()) {
+      FinishTaskAndLogErrors(task_id, responses.status(), std::move(callback));
+      return;
+    }
 
     // Keep track of the last_prefill_token_id after prefill is done.
-    if (responses.ok()) {
-      auto processed_tokens = llm_executor.value()->GetProcessedTokens();
-      if (!processed_tokens.ok()) {
-        responses = processed_tokens.status();
-      }
-      auto current_step = llm_executor.value()->GetCurrentStep();
-      if (!current_step.ok()) {
-        responses = current_step.status();
-      }
-      if (processed_tokens.ok() && current_step.ok()) {
-        session_info->last_prefill_token_id =
-            processed_tokens.value()
-                ->GetTokenAtStep(current_step.value() - 1)
-                .at(0);
-      }
+    auto processed_tokens = llm_executor.value()->GetProcessedTokens();
+    if (!processed_tokens.ok()) {
+      FinishTaskAndLogErrors(task_id, processed_tokens.status(),
+                             std::move(callback));
+      return;
     }
+    auto current_step = llm_executor.value()->GetCurrentStep();
+    if (!current_step.ok()) {
+      FinishTaskAndLogErrors(task_id, current_step.status(),
+                             std::move(callback));
+      return;
+    }
+    session_info->last_prefill_token_id =
+        processed_tokens.value()
+            ->GetTokenAtStep(current_step.value() - 1)
+            .at(0);
 
-    auto status =
-        FinishTask(task_id, std::move(responses), std::move(callback));
-    if (!status.ok()) {
-      ABSL_LOG(ERROR) << "Failed to finish task: " << status
-                      << " with task id: " << task_id;
-    }
+    FinishTaskAndLogErrors(task_id, std::move(responses), std::move(callback));
     return;
   };
 
@@ -642,9 +647,8 @@ absl::Status ExecutionManager::AddDecodeTask(
   auto task = [this, task_id, constraint, cancelled]() mutable -> void {
     auto session_info_and_callback = StartTask(task_id);
     if (!session_info_and_callback.ok()) {
-      ABSL_LOG(ERROR) << "Failed to start task: "
-                      << session_info_and_callback.status()
-                      << " with task id: " << task_id;
+      FinishTaskAndLogErrors(task_id, session_info_and_callback.status(),
+                             [](absl::StatusOr<Responses> responses) {});
       return;
     }
     auto [session_info, callback] =
@@ -658,7 +662,8 @@ absl::Status ExecutionManager::AddDecodeTask(
     auto llm_executor = resource_manager_->AcquireExecutorWithContextHandler(
         session_info->context_handler);
     if (!llm_executor.ok()) {
-      callback(llm_executor.status());
+      FinishTaskAndLogErrors(task_id, llm_executor.status(),
+                             std::move(callback));
       return;
     }
 
@@ -688,12 +693,7 @@ absl::Status ExecutionManager::AddDecodeTask(
       responses = Responses(TaskState::kCancelled);
     }
 
-    auto status =
-        FinishTask(task_id, std::move(responses), std::move(callback));
-    if (!status.ok()) {
-      ABSL_LOG(ERROR) << "Failed to finish task: " << status
-                      << " with task id: " << task_id;
-    }
+    FinishTaskAndLogErrors(task_id, std::move(responses), std::move(callback));
     return;
   };
 
@@ -712,9 +712,8 @@ absl::Status ExecutionManager::AddCloneSessionTask(
   auto task = [this, task_id, cloned_session_id]() mutable -> void {
     auto session_info_and_callback = StartTask(task_id);
     if (!session_info_and_callback.ok()) {
-      ABSL_LOG(ERROR) << "Failed to start task: "
-                      << session_info_and_callback.status()
-                      << " with task id: " << task_id;
+      FinishTaskAndLogErrors(task_id, session_info_and_callback.status(),
+                             [](absl::StatusOr<Responses> responses) {});
       return;
     }
     auto [session_info, callback] =
@@ -725,18 +724,19 @@ absl::Status ExecutionManager::AddCloneSessionTask(
       return;
     }
 
-    {
+    absl::StatusOr<Responses> result = Responses(TaskState::kDone);
+    [&] {
       absl::MutexLock lock(session_and_task_lookup_mutex_);
       if (!session_lookup_.contains(cloned_session_id)) {
-        callback(absl::InvalidArgumentError(
+        result = absl::InvalidArgumentError(
             absl::StrCat("Cloned session ", cloned_session_id,
-                         " not found in session list.")));
+                         " not found in session list."));
         return;
       }
       auto cloned_context_handler =
           resource_manager_->CloneContextHandler(session_info->context_handler);
       if (!cloned_context_handler.ok()) {
-        callback(cloned_context_handler.status());
+        result = cloned_context_handler.status();
         return;
       }
       std::unique_ptr<Sampler> cloned_sampler;
@@ -746,7 +746,7 @@ absl::Status ExecutionManager::AddCloneSessionTask(
                           session_info->session_config.GetNumOutputCandidates(),
                           session_info->session_config.GetSamplerParams());
         if (!sampler.ok()) {
-          callback(sampler.status());
+          result = sampler.status();
           return;
         }
         cloned_sampler = std::move(*sampler);
@@ -757,7 +757,8 @@ absl::Status ExecutionManager::AddCloneSessionTask(
         auto status = cloned_stop_token_detector->AddStopTokenSequence(
             stop_token_sequence);
         if (!status.ok()) {
-          ABSL_LOG(ERROR) << "Failed to add stop token sequence: " << status;
+          result = status;
+          return;
         }
       }
       session_lookup_.at(cloned_session_id)->session_config =
@@ -772,14 +773,9 @@ absl::Status ExecutionManager::AddCloneSessionTask(
           std::move(cloned_stop_token_detector);
       session_lookup_.at(cloned_session_id)->benchmark_info =
           session_info->benchmark_info;
-    }
+    }();
 
-    auto status =
-        FinishTask(task_id, Responses(TaskState::kDone), std::move(callback));
-    if (!status.ok()) {
-      ABSL_LOG(ERROR) << "Failed to finish task: " << status
-                      << " with task id: " << task_id;
-    }
+    FinishTaskAndLogErrors(task_id, result, std::move(callback));
     return;
   };
 
