@@ -27,6 +27,7 @@
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "absl/time/time.h"  // from @com_google_absl
 #include "runtime/components/tokenizer.h"
 #include "runtime/engine/engine.h"
 #include "runtime/engine/engine_settings.h"
@@ -41,6 +42,44 @@ namespace litert::lm {
 // management to support efficient multi-sessions and session cloning features.
 class SessionAdvanced : public Engine::Session {
  public:
+  class AdvancedTaskController : public Engine::Session::TaskController {
+   public:
+    AdvancedTaskController(TaskId task_id,
+                           std::shared_ptr<std::atomic<bool>> cancelled,
+                           ExecutionManager& execution_manager,
+                           std::weak_ptr<const SessionInfo> session_info)
+        : task_id_(task_id),
+          cancelled_(cancelled),
+          execution_manager_(execution_manager),
+          session_info_(session_info) {}
+
+    absl::Status WaitUntilDone(absl::Duration timeout) override {
+      if (session_info_.expired()) {
+        return absl::CancelledError("execution manager has been destroyed.");
+      }
+      return execution_manager_.WaitUntilDone(task_id_, timeout);
+    }
+
+    absl::Status Cancel() override {
+      cancelled_->store(true);
+      return absl::OkStatus();
+    }
+
+   private:
+    // The task ID of the async task.
+    TaskId task_id_;
+
+    // An atomic boolean to indicate whether the session is cancelled.
+    std::shared_ptr<std::atomic<bool>> cancelled_;
+
+    // The execution manager used for the session.
+    ExecutionManager& execution_manager_;
+
+    // The session info of the session, used to check if the session is still
+    // alive.
+    std::weak_ptr<const SessionInfo> session_info_;
+  };
+
   // Creates a SessionAdvanced object.
   // - executor: The initialized LLM Executor to call.
   // - tokenizer: The tokenizer to encode/decode the text into token ids.
@@ -96,7 +135,7 @@ class SessionAdvanced : public Engine::Session {
 
   absl::Status RunPrefill(const std::vector<InputData>& contents) override;
 
-  absl::Status RunPrefillAsync(
+  absl::StatusOr<std::unique_ptr<TaskController>> RunPrefillAsync(
       const std::vector<InputData>& contents,
       absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback) override;
 
@@ -105,10 +144,10 @@ class SessionAdvanced : public Engine::Session {
   absl::StatusOr<Responses> RunDecode(
       const DecodeConfig& decode_config) override;
 
-  absl::Status RunDecodeAsync(
+  absl::StatusOr<std::unique_ptr<TaskController>> RunDecodeAsync(
       absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback) override;
 
-  absl::Status RunDecodeAsync(
+  absl::StatusOr<std::unique_ptr<TaskController>> RunDecodeAsync(
       absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback,
       const DecodeConfig& decode_config) override;
 
@@ -118,7 +157,9 @@ class SessionAdvanced : public Engine::Session {
   // Conversation.
   void CancelProcess() override {
     ABSL_LOG(INFO) << "SessionAdvanced::CancelProcess";
-    cancelled_->store(true);
+    for (const auto& cancel_flag : cancel_flags_) {
+      cancel_flag->store(true);
+    }
   }
 
   const SessionConfig& GetSessionConfig() const override {
@@ -136,21 +177,19 @@ class SessionAdvanced : public Engine::Session {
       absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback) override;
 
  private:
-  explicit SessionAdvanced(SessionId session_id,
-                           ExecutionManager* absl_nonnull execution_manager,
-                           Tokenizer* absl_nonnull tokenizer,
-                           std::shared_ptr<const SessionInfo> session_info,
-                           bool is_first_turn = true,
-                           absl::flat_hash_set<TaskId> last_task_ids = {},
-                           std::shared_ptr<std::atomic<bool>> cancelled =
-                               std::make_shared<std::atomic<bool>>(false))
+  explicit SessionAdvanced(
+      SessionId session_id, ExecutionManager* absl_nonnull execution_manager,
+      Tokenizer* absl_nonnull tokenizer,
+      std::shared_ptr<const SessionInfo> session_info,
+      bool is_first_turn = true, absl::flat_hash_set<TaskId> last_task_ids = {},
+      absl::flat_hash_set<std::shared_ptr<std::atomic<bool>>> cancel_flags = {})
       : session_id_(session_id),
         execution_manager_(*execution_manager),
         tokenizer_(*tokenizer),
         session_info_(session_info),
         is_first_turn_(is_first_turn),
         last_task_ids_(last_task_ids),
-        cancelled_(cancelled) {}
+        cancel_flags_(cancel_flags) {}
 
   // The session ID used for the session.
   SessionId session_id_;
@@ -174,8 +213,7 @@ class SessionAdvanced : public Engine::Session {
   absl::flat_hash_set<TaskId> last_task_ids_ = {};
 
   // An atomic boolean to indicate whether the session is cancelled.
-  std::shared_ptr<std::atomic<bool>> cancelled_ =
-      std::make_shared<std::atomic<bool>>(false);
+  absl::flat_hash_set<std::shared_ptr<std::atomic<bool>>> cancel_flags_ = {};
 };
 
 }  // namespace litert::lm

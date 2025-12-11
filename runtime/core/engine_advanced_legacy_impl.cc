@@ -17,6 +17,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/base/no_destructor.h"  // from @com_google_absl
 #include "absl/base/nullability.h"  // from @com_google_absl
 #include "absl/log/absl_check.h"  // from @com_google_absl
 #include "absl/log/absl_log.h"  // from @com_google_absl
@@ -32,7 +33,6 @@
 #include "third_party/odml/infra/genai/inference/executor/llm_litert_xnnpack_executor.h"
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/cc/litert_macros.h"  // from @litert
-#include "runtime/components/sentencepiece_tokenizer.h"
 #include "runtime/components/tokenizer.h"
 #include "runtime/core/session_factory.h"
 #include "runtime/engine/engine.h"
@@ -45,8 +45,6 @@
 #include "runtime/executor/vision_executor_settings.h"
 #include "runtime/framework/resource_management/execution_manager.h"
 #include "runtime/proto/sampler_params.pb.h"
-#include "runtime/util/metadata_util.h"
-#include "runtime/util/model_asset_bundle_resources.h"
 #include "runtime/util/status_macros.h"  // NOLINT
 
 namespace litert::lm {
@@ -93,6 +91,18 @@ absl::StatusOr<std::unique_ptr<LlmExecutor>> BuildExecutor(
   return std::move(executor);
 }
 
+absl::StatusOr<Environment&> GetEnvironment() {
+  static absl::NoDestructor<absl::StatusOr<Environment>> kEnvironment(
+      [&]() -> absl::StatusOr<Environment> {
+        LITERT_ASSIGN_OR_RETURN(auto env, Environment::Create({}));
+        return std::move(env);
+      }());
+  if (!kEnvironment->ok()) {
+    return kEnvironment->status();
+  }
+  return **kEnvironment;
+}
+
 }  // namespace
 
 class EngineImpl : public Engine {
@@ -117,13 +127,11 @@ class EngineImpl : public Engine {
       std::unique_ptr<oi::ExecutorModelResources> model_resources,
       std::unique_ptr<ExecutionManager> execution_manager,
       Tokenizer* absl_nonnull tokenizer,
-      std::unique_ptr<Tokenizer> task_tokenizer,
       std::optional<BenchmarkInfo> benchmark_info)
       : engine_settings_(std::move(engine_settings)),
         model_resources_(std::move(model_resources)),
         execution_manager_(std::move(execution_manager)),
         tokenizer_(std::move(tokenizer)),
-        task_tokenizer_(std::move(task_tokenizer)),
         benchmark_info_(std::move(benchmark_info)) {}
 
   // Method to create the Session.
@@ -184,36 +192,21 @@ absl::StatusOr<std::unique_ptr<Engine>> Engine::CreateEngine(
       oi::BuildModelResources(/*model_path=*/"", scoped_model_file));
 
   proto::LlmMetadata llm_metadata;
-  std::unique_ptr<Tokenizer> task_tokenizer;
   Tokenizer* tokenizer = nullptr;
   if (model_resources->litert_lm_model_resources == nullptr) {
-    // Handle the .task or .tflite file format.
-    ASSIGN_OR_RETURN(auto resources, ModelAssetBundleResources::Create(
-                                         /*tag=*/"", scoped_model_file));
-    if (benchmark_info.has_value()) {
-      RETURN_IF_ERROR(
-          benchmark_info->TimeInitPhaseStart("Tokenizer initialization"));
-    }
-    ASSIGN_OR_RETURN(auto vocab_buffer, resources->GetFile("TOKENIZER_MODEL"));
-    ASSIGN_OR_RETURN(task_tokenizer,
-                     SentencePieceTokenizer::CreateFromBuffer(vocab_buffer));
-    tokenizer = task_tokenizer.get();
-    if (benchmark_info.has_value()) {
-      RETURN_IF_ERROR(
-          benchmark_info->TimeInitPhaseEnd("Tokenizer initialization"));
-    }
-    ASSIGN_OR_RETURN(auto metadata_buffer, resources->GetFile("METADATA"));
-    ASSIGN_OR_RETURN(llm_metadata,
-                     ExtractOrConvertLlmMetadata(metadata_buffer));
-  } else {
-    // Handle the .litert_lm file format.
-    ASSIGN_OR_RETURN(
-        tokenizer, model_resources->litert_lm_model_resources->GetTokenizer());
-    ASSIGN_OR_RETURN(
-        auto metadata,
-        model_resources->litert_lm_model_resources->GetLlmMetadata());
-    llm_metadata = *metadata;
+    return absl::InternalError(
+        "Failed to build legacy EngineImpl: "
+        "model_resources.litert_lm_model_resources is null.");
   }
+
+  // Handle the .litert_lm file format.
+  ASSIGN_OR_RETURN(
+      tokenizer, model_resources->litert_lm_model_resources->GetTokenizer());
+  ASSIGN_OR_RETURN(
+      auto metadata,
+      model_resources->litert_lm_model_resources->GetLlmMetadata());
+  llm_metadata = *metadata;
+
   // Update and load the parameters from the model file and convert the tokens
   // to ids.
   RETURN_IF_ERROR(engine_settings.MaybeUpdateAndValidate(
@@ -222,7 +215,7 @@ absl::StatusOr<std::unique_ptr<Engine>> Engine::CreateEngine(
   ASSIGN_OR_RETURN(auto executor,
                    BuildExecutor(*model_resources, engine_settings));
 
-  LITERT_ASSIGN_OR_RETURN(auto litert_env, Environment::Create({}));
+  ASSIGN_OR_RETURN(auto& litert_env, GetEnvironment());
 
   std::unique_ptr<VisionExecutorSettings> vision_executor_settings_ptr;
   if (engine_settings.GetVisionExecutorSettings().has_value()) {
@@ -270,13 +263,12 @@ absl::StatusOr<std::unique_ptr<Engine>> Engine::CreateEngine(
                    ExecutionManager::Create(
                        tokenizer, std::move(executor),
                        std::move(vision_executor_settings_ptr),
-                       std::move(audio_executor_settings_ptr),
-                       std::make_unique<Environment>(std::move(litert_env))));
+                       std::move(audio_executor_settings_ptr), &litert_env));
 
   auto llm_impl = std::make_unique<EngineImpl>(
       std::move(engine_settings), std::move(model_resources),
       std::move(execution_manager), std::move(tokenizer),
-      std::move(task_tokenizer), std::move(benchmark_info));
+      std::move(benchmark_info));
   return llm_impl;
 };
 

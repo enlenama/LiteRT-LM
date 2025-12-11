@@ -71,7 +71,8 @@ absl::StatusOr<SessionId> ExecutionManager::RegisterNewSession(
     ASSIGN_OR_RETURN(sampler,
                      CreateSampler(session_config.GetSamplerBackend(),
                                    session_config.GetNumOutputCandidates(),
-                                   session_config.GetSamplerParams()));
+                                   session_config.GetSamplerParams(),
+                                   litert_env_ ? litert_env_->Get() : nullptr));
   }
   auto stop_token_detector = std::make_unique<StopTokenDetector>(1);
   for (const auto& stop_token_sequence : session_config.GetStopTokenIds()) {
@@ -426,7 +427,8 @@ absl::Status ExecutionManager::UpdateAllTasksToState(
 }
 
 absl::StatusOr<ExecutorInputs> ExecutionManager::ProcessAndCombineContents(
-    const std::vector<InputData>& preprocessed_contents) {
+    const std::vector<InputData>& preprocessed_contents,
+    std::optional<BenchmarkInfo>& benchmark_info) {
   std::vector<int> combined_token_ids;
   std::vector<ExecutorVisionData> all_image_data;
   std::vector<ExecutorAudioData> all_audio_data;
@@ -451,15 +453,15 @@ absl::StatusOr<ExecutorInputs> ExecutionManager::ProcessAndCombineContents(
         return absl::InvalidArgumentError(
             "Image tensor is null in preprocessed_contents.");
       }
-      if (benchmark_info_.has_value()) {
-        RETURN_IF_ERROR(benchmark_info_->TimeMarkDelta("vision_executor"));
+      if (benchmark_info.has_value()) {
+        RETURN_IF_ERROR(benchmark_info->TimeMarkDelta("vision_executor"));
       }
       ASSIGN_OR_RETURN(auto vision_executor,
                        resource_manager_->AcquireVisionExecutor());
       ASSIGN_OR_RETURN(auto single_image_data,
                        vision_executor->Encode(*image_tensor));
-      if (benchmark_info_.has_value()) {
-        RETURN_IF_ERROR(benchmark_info_->TimeMarkDelta("vision_executor"));
+      if (benchmark_info.has_value()) {
+        RETURN_IF_ERROR(benchmark_info->TimeMarkDelta("vision_executor"));
       }
       ASSIGN_OR_RETURN(auto embeddings_ptr,
                        single_image_data.GetEmbeddingsPtr());
@@ -473,15 +475,15 @@ absl::StatusOr<ExecutorInputs> ExecutionManager::ProcessAndCombineContents(
                    std::get_if<InputAudio>(&preprocessed_content)) {
       ASSIGN_OR_RETURN(const auto* spectrogram_tensor,
                        input_audio->GetPreprocessedAudioTensor());
-      if (benchmark_info_.has_value()) {
-        RETURN_IF_ERROR(benchmark_info_->TimeMarkDelta("audio_executor"));
+      if (benchmark_info.has_value()) {
+        RETURN_IF_ERROR(benchmark_info->TimeMarkDelta("audio_executor"));
       }
       ASSIGN_OR_RETURN(auto audio_executor,
                        resource_manager_->AcquireAudioExecutor());
       ASSIGN_OR_RETURN(auto single_audio_data,
                        audio_executor->Encode(*spectrogram_tensor));
-      if (benchmark_info_.has_value()) {
-        RETURN_IF_ERROR(benchmark_info_->TimeMarkDelta("audio_executor"));
+      if (benchmark_info.has_value()) {
+        RETURN_IF_ERROR(benchmark_info->TimeMarkDelta("audio_executor"));
       }
       const int num_audio_tokens = single_audio_data.GetValidTokens();
       all_audio_data.push_back(std::move(single_audio_data));
@@ -525,15 +527,15 @@ absl::StatusOr<std::unique_ptr<ExecutionManager>> ExecutionManager::Create(
     vision_executor_settings,
     std::unique_ptr<AudioExecutorSettings> absl_nullable
     audio_executor_settings,
-    std::unique_ptr<::litert::Environment> absl_nullable litert_env) {
+    ::litert::Environment* absl_nullable litert_env) {
   std::unique_ptr<Sampler> sampler;
-  ASSIGN_OR_RETURN(auto resource_manager,
-                   ResourceManager::Create(std::move(llm_executor),
-                                           std::move(vision_executor_settings),
-                                           std::move(audio_executor_settings),
-                                           std::move(litert_env)));
+  ASSIGN_OR_RETURN(
+      auto resource_manager,
+      ResourceManager::Create(std::move(llm_executor),
+                              std::move(vision_executor_settings),
+                              std::move(audio_executor_settings), litert_env));
   return absl::WrapUnique(
-      new ExecutionManager(tokenizer, std::move(resource_manager)));
+      new ExecutionManager(tokenizer, std::move(resource_manager), litert_env));
 }
 
 absl::Status ExecutionManager::WaitUntilDone(TaskId task_id,
@@ -580,7 +582,8 @@ absl::Status ExecutionManager::AddPrefillTask(
       return;
     }
 
-    auto executor_inputs = ProcessAndCombineContents(inputs);
+    auto executor_inputs =
+        ProcessAndCombineContents(inputs, session_info->benchmark_info);
     if (!executor_inputs.ok()) {
       callback(executor_inputs.status());
       return;
