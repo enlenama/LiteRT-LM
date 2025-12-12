@@ -1,0 +1,12 @@
+set(EXTERNAL_PROJECT_MODULES_DIR "${LITERTLM_MODULES_DIR}/external")
+
+include(${EXTERNAL_PROJECT_MODULES_DIR}/opencl.cmake)
+include(${EXTERNAL_PROJECT_MODULES_DIR}/absl.cmake)
+include(${EXTERNAL_PROJECT_MODULES_DIR}/gtest.cmake)
+include(${EXTERNAL_PROJECT_MODULES_DIR}/protobuf.cmake)
+include(${EXTERNAL_PROJECT_MODULES_DIR}/sentencepiece.cmake)
+include(${EXTERNAL_PROJECT_MODULES_DIR}/tokenizers.cmake)
+include(${EXTERNAL_PROJECT_MODULES_DIR}/re2.cmake)
+include(${EXTERNAL_PROJECT_MODULES_DIR}/flatbuffers.cmake)
+include(${EXTERNAL_PROJECT_MODULES_DIR}/tflite.cmake)
+include(${EXTERNAL_PROJECT_MODULES_DIR}/litert.cmake)
