@@ -364,6 +364,7 @@ build:windows --linkopt=/OPT:REF
 build:windows --host_linkopt=/OPT:REF
 build:windows --linkopt=/OPT:ICF
 build:windows --host_linkopt=/OPT:ICF
+build:windows --features=static
 
 # Force local execution for genrules on Windows
 build:windows --strategy=Genrule=local

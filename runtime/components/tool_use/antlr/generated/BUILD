@@ -26,3 +26,17 @@ package_group(
         "//runtime/components/tool_use/...",
     ],
 )
+
+rust_library(
+    name = "antlr_python_tool_call_parser",
+    srcs = [
+        "antlr_python_tool_call_parser.rs",
+        "antlrpythonlexer.rs",
+        "antlrpythonparser.rs",
+        "antlrpythonparserbaselistener.rs",
+        "antlrpythonparserlistener.rs",
+    ],
+    deps = [
+        "@crate_index//:antlr4rust",
+    ],
+)

@@ -28,3 +28,25 @@ package_group(
         "//runtime/components/tool_use/...",
     ],
 )
+
+rust_library(
+    name = "python_parser",
+    srcs = [
+        "python_parser.rs",
+    ],
+    deps = [
+        "//runtime/components/tool_use/antlr/generated:antlr_python_tool_call_parser",
+        "//runtime/components/tool_use/proto:tool_call_rust_proto",
+        "@com_google_protobuf//rust:protobuf",
+        "@crate_index//:antlr4rust",
+        "@crate_index//:cxx",
+    ],
+)
+
+rust_cxx_bridge(
+    name = "python_parser_cpp",
+    src = "python_parser.rs",
+    deps = [
+        ":python_parser",
+    ],
+)
