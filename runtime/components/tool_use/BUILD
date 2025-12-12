@@ -80,7 +80,9 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@nlohmann_json//:json",
-        "//runtime/components/tool_use/antlr:antlr_python_tool_call_parser",
+        "//runtime/components/tool_use/proto:tool_call_cc_proto",
+        "//runtime/components/tool_use/rust:python_parser",
+        "//runtime/components/tool_use/rust:python_parser_cpp",
     ],
 )
 
