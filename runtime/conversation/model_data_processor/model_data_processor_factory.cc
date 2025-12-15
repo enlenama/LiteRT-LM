@@ -109,7 +109,15 @@ absl::StatusOr<DataProcessorConfig> CreateGenericDataProcessorConfig(
         "GenericModel LlmModelType is required to create "
         "GenericDataProcessorConfig.");
   }
-  return GenericDataProcessorConfig();
+  GenericDataProcessorConfig config;
+  if (model_type.generic_model().has_model_role()) {
+    config.model_role = model_type.generic_model().model_role();
+  }
+  if (model_type.generic_model().has_force_string_content()) {
+    config.force_string_content =
+        model_type.generic_model().force_string_content();
+  }
+  return config;
 }
 
 absl::StatusOr<DataProcessorConfig> CreateQwen3DataProcessorConfig(
