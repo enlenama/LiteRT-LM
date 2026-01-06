@@ -547,6 +547,8 @@ void LogMemoryUsage(const LiteRtLmSettings& settings, float peak_mem_mb,
 }  // namespace
 
 absl::Status RunLiteRtLm(const LiteRtLmSettings& settings) {
+  ABSL_LOG(INFO) << "RunLiteRtLm!";
+
   std::unique_ptr<FileLogSink> log_sink;
   if (settings.log_sink_file.has_value()) {
     log_sink = std::make_unique<FileLogSink>(settings.log_sink_file.value());
