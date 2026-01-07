@@ -46,6 +46,7 @@
 #include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/time/time.h"  // from @com_google_absl
 #include "nlohmann/json.hpp"  // from @nlohmann_json
+#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/conversation/conversation.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/engine/engine.h"
@@ -54,7 +55,6 @@
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/executor/llm_executor_settings.h"
 #include "runtime/proto/sampler_params.pb.h"
-#include "litert/cc/internal/scoped_file.h"  // from @litert
 #include "runtime/util/status_macros.h"  // IWYU pragma: keep
 #include "re2/re2.h"  // from @com_googlesource_code_re2
 #include "tflite/profiling/memory_info.h"  // from @litert
@@ -553,13 +553,6 @@ absl::Status RunLiteRtLm(const LiteRtLmSettings& settings) {
     absl::AddLogSink(log_sink.get());
   }
 
-  std::unique_ptr<tflite::profiling::memory::MemoryUsageMonitor> mem_monitor;
-  if (settings.report_peak_memory_footprint) {
-    mem_monitor =
-        std::make_unique<tflite::profiling::memory::MemoryUsageMonitor>(
-            kMemoryCheckIntervalMs);
-    mem_monitor->Start();
-  }
   ASSIGN_OR_RETURN(EngineSettings engine_settings,
                    CreateEngineSettings(settings));
   ABSL_LOG(INFO) << "Creating engine";
@@ -568,6 +561,13 @@ absl::Status RunLiteRtLm(const LiteRtLmSettings& settings) {
                                                     settings.input_prompt));
   // Get the session config.
   SessionConfig session_config = CreateSessionConfig(settings);
+  std::unique_ptr<tflite::profiling::memory::MemoryUsageMonitor> mem_monitor;
+  if (settings.report_peak_memory_footprint) {
+    mem_monitor =
+        std::make_unique<tflite::profiling::memory::MemoryUsageMonitor>(
+            kMemoryCheckIntervalMs);
+    mem_monitor->Start();
+  }
 
   // Session and Conversation are mutually exclusive. Only when
   // settings.score_target_text is set, we will create a Session to run the
