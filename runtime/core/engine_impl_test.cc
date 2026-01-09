@@ -215,7 +215,8 @@ TEST(EngineTest, CreateEngine_FailsNoVisionModel) {
   auto model_assets = ModelAssets::Create(task_path.string());
   ASSERT_OK(model_assets);
   auto engine_settings = EngineSettings::CreateDefault(
-      *model_assets, /*backend=*/Backend::CPU, /*vision_backend=*/Backend::CPU,
+      *model_assets, /*backend=*/Backend::CPU,
+      /*vision_backend=*/Backend::CPU,
       /*audio_backend=*/std::nullopt);
   engine_settings->GetMutableMainExecutorSettings().SetMaxNumTokens(
       kMaxNumTokens);
@@ -233,7 +234,8 @@ TEST(EngineTest, CreateEngine_FailsNoAudioModel) {
   auto model_assets = ModelAssets::Create(task_path.string());
   ASSERT_OK(model_assets);
   auto engine_settings = EngineSettings::CreateDefault(
-      *model_assets, /*backend=*/Backend::CPU, /*vision_backend=*/std::nullopt,
+      *model_assets, /*backend=*/Backend::CPU,
+      /*vision_backend=*/std::nullopt,
       /*audio_backend=*/Backend::CPU);
   engine_settings->GetMutableMainExecutorSettings().SetMaxNumTokens(
       kMaxNumTokens);
