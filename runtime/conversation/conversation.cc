@@ -76,24 +76,6 @@ absl::Status FillPrefaceForPromptTemplateInput(
 
 }  // namespace
 
-absl::StatusOr<ConversationConfig> ConversationConfig::CreateDefault(
-    const Engine& engine, std::optional<Preface> preface,
-    std::optional<PromptTemplate> overwrite_prompt_template,
-    std::optional<DataProcessorConfig> overwrite_processor_config,
-    bool enable_constrained_decoding, bool prefill_preface_on_init) {
-  SessionConfig session_config = SessionConfig::CreateDefault();
-  if (overwrite_prompt_template.has_value()) {
-    session_config.GetMutableJinjaPromptTemplate() =
-        overwrite_prompt_template->GetTemplateSource();
-  } else {
-    ABSL_LOG(INFO) << "Overwrite prompt template is not provided, using the "
-                      "default template from the model metadata.";
-  }
-  return CreateFromSessionConfig(engine, session_config, preface,
-                                 overwrite_processor_config,
-                                 enable_constrained_decoding);
-}
-
 absl::StatusOr<ConversationConfig> ConversationConfig::CreateFromSessionConfig(
     const Engine& engine, const SessionConfig& session_config,
     std::optional<Preface> preface,
@@ -241,7 +223,10 @@ absl::StatusOr<std::unique_ptr<Conversation>> Conversation::Create(
                          single_turn_text,
                          std::get<JsonPreface>(config.GetPreface()).messages,
                          std::monostate()));
-    RETURN_IF_ERROR(conversation->session_->RunPrefill(session_inputs));
+
+    if (!session_inputs.empty()) {
+      RETURN_IF_ERROR(conversation->session_->RunPrefill(session_inputs));
+    }
   }
 
   if (engine.GetEngineSettings().IsBenchmarkEnabled()) {

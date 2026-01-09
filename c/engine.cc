@@ -15,9 +15,9 @@
 #include "c/engine.h"
 
 #include <cstddef>
+#include <cstring>
 #include <memory>
 #include <optional>
-#include <cstring>
 #include <string>
 #include <utility>
 #include <variant>
@@ -182,8 +182,7 @@ void litert_lm_session_config_delete(LiteRtLmSessionConfig* config) {
   delete config;
 }
 
-LiteRtLmConversationConfig*
-litert_lm_conversation_config_create(
+LiteRtLmConversationConfig* litert_lm_conversation_config_create(
     LiteRtLmEngine* engine, const LiteRtLmSamplerParams* sampler_params,
     const char* system_message_json) {
   if (!engine || !engine->engine) {
@@ -298,8 +297,8 @@ void litert_lm_engine_settings_set_max_num_tokens(
   }
 }
 
-void litert_lm_engine_settings_set_cache_dir(
-    LiteRtLmEngineSettings* settings, const char* cache_dir) {
+void litert_lm_engine_settings_set_cache_dir(LiteRtLmEngineSettings* settings,
+                                             const char* cache_dir) {
   if (settings && settings->settings) {
     settings->settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir);
   }
@@ -519,11 +518,11 @@ LiteRtLmConversation* litert_lm_conversation_create(
 
   absl::StatusOr<std::unique_ptr<Conversation>> conversation;
   if (conversation_config && conversation_config->config) {
-    conversation = Conversation::Create(*engine->engine,
-                                        *conversation_config->config);
+    conversation =
+        Conversation::Create(*engine->engine, *conversation_config->config);
   } else {
     auto default_conversation_config =
-        ConversationConfig::CreateDefault(*engine->engine);
+        ConversationConfig::CreateFromSessionConfig(*engine->engine);
     if (!default_conversation_config.ok()) {
       ABSL_LOG(ERROR) << "Failed to create default conversation config: "
                       << default_conversation_config.status();
