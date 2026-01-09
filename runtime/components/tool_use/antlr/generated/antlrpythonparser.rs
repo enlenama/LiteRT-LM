@@ -858,7 +858,7 @@ where
 			recog.base.set_state(58);
 			recog.err_handler.sync(&mut recog.base)?;
 			_la = recog.base.input.la(1);
-			if (((_la) & !0x3f) == 0 && ((1usize << _la) & 64832) != 0) {
+			if ((_la) & !0x3f) == 0 && ((1usize << _la) & 64832) != 0 {
 				{
 				/*InvokeRule value*/
 				recog.base.set_state(50);
