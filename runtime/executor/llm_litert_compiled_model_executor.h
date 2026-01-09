@@ -34,6 +34,7 @@
 #include "litert/cc/litert_model.h"  // from @litert
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
 #include "runtime/components/embedding_lookup/embedding_lookup_manager.h"
+#include "runtime/components/kv_cache_copier.h"
 #include "runtime/components/model_resources.h"
 #include "runtime/components/sampler.h"
 #include "runtime/executor/executor_settings_base.h"
@@ -137,7 +138,9 @@ class LlmLiteRtCompiledModelExecutorBase : public LlmExecutor {
       std::string weight_cache_path,
       std::unique_ptr<EmbeddingLookupManager> embedding_lookup,
       std::unique_ptr<EmbeddingLookupManager> per_layer_embedding_lookup,
-      bool use_fp16_precision, LogitsDataType logits_data_type)
+      bool use_fp16_precision, LogitsDataType logits_data_type,
+      std::unique_ptr<KVCacheCopier> kv_cache_copier,
+      std::string kv_cache_k_root_name)
       : executor_settings_(std::move(executor_settings)),
         env_(env),
         model_(*model),
@@ -156,7 +159,9 @@ class LlmLiteRtCompiledModelExecutorBase : public LlmExecutor {
         embedding_lookup_(std::move(embedding_lookup)),
         per_layer_embedding_lookup_(std::move(per_layer_embedding_lookup)),
         use_fp16_precision_(use_fp16_precision),
-        logits_data_type_(logits_data_type) {}
+        logits_data_type_(logits_data_type),
+        kv_cache_copier_(std::move(kv_cache_copier)),
+        kv_cache_k_root_name_(kv_cache_k_root_name) {}
 
  protected:
   // Rolls back the processed tokens to the current step.
@@ -299,6 +304,9 @@ class LlmLiteRtCompiledModelExecutorBase : public LlmExecutor {
 
   // GPU optimized single buffer cache
   bool gpu_optimized_single_buffer_cache_ = false;
+
+  std::unique_ptr<KVCacheCopier> kv_cache_copier_;
+  std::string kv_cache_k_root_name_;
 };
 
 // The static executor for the prefill-decode compiled model.
@@ -337,6 +345,8 @@ class LlmLiteRtCompiledModelExecutorStatic
       SortedPrefillSignatureMap prefill_signature_map,
       ModelSignatures signatures, int output_batch_size,
       std::string weight_cache_path,
+      std::unique_ptr<KVCacheCopier> kv_cache_copier,
+      std::string kv_cache_k_root_name,
       std::unique_ptr<EmbeddingLookupManager> embedding_lookup = nullptr,
       std::unique_ptr<EmbeddingLookupManager> per_layer_embedding_lookup =
           nullptr,
@@ -351,7 +361,8 @@ class LlmLiteRtCompiledModelExecutorStatic
             std::move(decode_output_kv_cache_buffers), signatures,
             output_batch_size, std::move(weight_cache_path),
             std::move(embedding_lookup), std::move(per_layer_embedding_lookup),
-            use_fp16_precision, logits_data_type),
+            use_fp16_precision, logits_data_type, std::move(kv_cache_copier),
+            std::move(kv_cache_k_root_name)),
         prefill_signature_map_(std::move(prefill_signature_map)) {}
 
   SortedPrefillSignatureMap prefill_signature_map_;
@@ -393,6 +404,8 @@ class LlmLiteRtCompiledModelExecutorDynamic
       std::vector<std::string> value_cache_input_names,
       ModelSignatures signatures, int output_batch_size,
       std::string weight_cache_path,
+      std::unique_ptr<KVCacheCopier> kv_cache_copier,
+      std::string kv_cache_k_root_name,
       std::unique_ptr<EmbeddingLookupManager> embedding_lookup = nullptr,
       std::unique_ptr<EmbeddingLookupManager> per_layer_embedding_lookup =
           nullptr,
@@ -407,7 +420,8 @@ class LlmLiteRtCompiledModelExecutorDynamic
             /*decode_output_kv_cache_buffers=*/std::nullopt, signatures,
             output_batch_size, std::move(weight_cache_path),
             std::move(embedding_lookup), std::move(per_layer_embedding_lookup),
-            use_fp16_precision, logits_data_type),
+            use_fp16_precision, logits_data_type, std::move(kv_cache_copier),
+            std::move(kv_cache_k_root_name)),
         prefill_chunk_size_(prefill_chunk_size),
         key_dynamic_dim_index_(key_dynamic_dim_index),
         value_dynamic_dim_index_(value_dynamic_dim_index),

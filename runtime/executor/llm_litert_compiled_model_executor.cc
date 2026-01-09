@@ -51,6 +51,7 @@
 #include "litert/cc/options/litert_gpu_options.h"  // from @litert
 #include "litert/cc/options/litert_runtime_options.h"  // from @litert
 #include "runtime/components/embedding_lookup/embedding_lookup_manager.h"
+#include "runtime/components/kv_cache_copier_factory.h"
 #include "runtime/components/model_resources.h"
 #include "runtime/components/sampler_factory.h"
 #include "runtime/executor/executor_settings_base.h"
@@ -339,24 +340,6 @@ absl::StatusOr<TensorBuffer> ResizeKVCacheTensorBuffer(
                                element_size.value()));
 
   return new_tensor_buffer;
-}
-
-absl::Status CopyBuffer(const TensorBuffer& buffers_from,
-                        TensorBuffer& buffers_to) {
-  // TODO: b/452977992: For GPU, we could use a shader to copy the buffer. If we
-  // were to do it this way for GPU, then it might make more sense just to keep
-  // the copy on the host. Also for GPU, consider optionally keeping its buffer
-  // copies in CPU memory to save on GPU memory.
-  LITERT_ASSIGN_OR_RETURN(auto read_lock,
-                          ::litert::TensorBufferScopedLock::Create(
-                              buffers_from, TensorBuffer::LockMode::kRead));
-  LITERT_ASSIGN_OR_RETURN(auto write_lock,
-                          ::litert::TensorBufferScopedLock::Create(
-                              buffers_to, TensorBuffer::LockMode::kWrite));
-
-  LITERT_ASSIGN_OR_RETURN(auto buffer_size, buffers_from.PackedSize());
-  memcpy(write_lock.second, read_lock.second, buffer_size);
-  return absl::OkStatus();
 }
 
 }  // namespace
@@ -1549,6 +1532,10 @@ LlmLiteRtCompiledModelExecutorStatic::Create(
   std::unique_ptr<EmbeddingLookupManager> per_layer_embedding_lookup;
   RETURN_IF_ERROR(InitializeEmbeddingLookups(resources, embedding_lookup,
                                              per_layer_embedding_lookup));
+
+  ASSIGN_OR_RETURN(auto kv_cache_copier,
+                   CreateKVCacheCopier(backend));
+
   return absl::WrapUnique(new LlmLiteRtCompiledModelExecutorStatic(
       std::move(executor_settings), lrt_env, litert_model,
       std::move(compiled_model), std::move(decode_input_buffers),
@@ -1557,6 +1544,7 @@ LlmLiteRtCompiledModelExecutorStatic::Create(
       std::move(decode_input_kv_cache_buffers),
       std::move(decode_output_kv_cache_buffers), std::move(prefill_runner_set),
       signatures, batch_size, std::move(weight_cache_path),
+      std::move(kv_cache_copier), std::move(kv_cache_k_root_name),
       std::move(embedding_lookup), std::move(per_layer_embedding_lookup),
       use_fp16_precision, activation_data_type));
 }
@@ -1853,14 +1841,19 @@ LlmLiteRtCompiledModelExecutorDynamic::Create(
   RETURN_IF_ERROR(InitializeEmbeddingLookups(resources, embedding_lookup,
                                              per_layer_embedding_lookup));
 
+  ASSIGN_OR_RETURN(auto kv_cache_copier,
+                   CreateKVCacheCopier(backend));
+
   return absl::WrapUnique(new LlmLiteRtCompiledModelExecutorDynamic(
       std::move(executor_settings), lrt_env, litert_model,
       std::move(compiled_model), std::move(decode_input_buffers),
       std::move(decode_output_buffers), prefill_chunk_size, k_dynamic_dim,
       v_dynamic_dim, kv_increament_size, std::move(key_cache_input_names),
       std::move(value_cache_input_names), signatures, batch_size,
-      std::move(weight_cache_path), std::move(embedding_lookup),
-      std::move(per_layer_embedding_lookup), /*use_fp16_precision=*/false));
+      std::move(weight_cache_path), std::move(kv_cache_copier),
+      std::move(kv_cache_k_root_name), std::move(embedding_lookup),
+      std::move(per_layer_embedding_lookup),
+      /*use_fp16_precision=*/false));
 }
 
 }  // namespace litert::lm

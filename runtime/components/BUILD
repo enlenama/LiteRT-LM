@@ -662,3 +662,52 @@ cc_test(
         "//runtime/util:test_utils",
     ],
 )
+
+cc_library(
+    name = "kv_cache_copier",
+    hdrs = ["kv_cache_copier.h"],
+    deps = [
+        "@com_google_absl//absl/status",
+    ] + select({
+        "@litert//litert:litert_link_capi_so": [
+            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+        ],
+        "//conditions:default": [
+            "@litert//litert/cc:litert_tensor_buffer",
+        ],
+    }),
+)
+
+cc_library(
+    name = "kv_cache_copier_factory",
+    srcs = ["kv_cache_copier_factory.cc"],
+    hdrs = ["kv_cache_copier_factory.h"],
+    deps = [
+        ":kv_cache_copier",
+        ":kv_cache_copier_cpu",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@litert//litert/cc:litert_environment",
+        "@litert//litert/cc:litert_ranked_tensor_type",
+        "//runtime/executor:executor_settings_base",
+    ],
+)
+
+cc_library(
+    name = "kv_cache_copier_cpu",
+    srcs = ["kv_cache_copier_cpu.cc"],
+    hdrs = ["kv_cache_copier_cpu.h"],
+    deps = [
+        ":kv_cache_copier",
+        "@com_google_absl//absl/status",
+    ] + select({
+        "@litert//litert:litert_link_capi_so": [
+            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+        ],
+        "//conditions:default": [
+            "@litert//litert/cc:litert_macros",
+            "@litert//litert/cc:litert_tensor_buffer",
+        ],
+    }),
+)
