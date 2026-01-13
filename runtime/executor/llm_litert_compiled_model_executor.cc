@@ -1050,10 +1050,15 @@ LlmLiteRtCompiledModelExecutorBase::DecodeLogits(
   return output_logits;
 }
 
-absl::Status LlmLiteRtCompiledModelExecutorBase::InitializeSampler() {
+absl::Status LlmLiteRtCompiledModelExecutorBase::InitializeSampler(
+    std::optional<ActivationDataType> logits_data_type) {
   if (sampler_ != nullptr) {
     return absl::OkStatus();
   }
+
+  // Use the provided activation data type if available, otherwise fallback to
+  // the member variable.
+  auto data_type = logits_data_type.value_or(logits_data_type_);
 
   ASSIGN_OR_RETURN(auto vocab_size, GetVocabSize());
   ASSIGN_OR_RETURN(auto sampler_backend, GetSamplerBackend(executor_settings_));
@@ -1066,7 +1071,7 @@ absl::Status LlmLiteRtCompiledModelExecutorBase::InitializeSampler() {
   ASSIGN_OR_RETURN(
       sampler_, CreateSampler(sampler_backend, output_batch_size_,
                               std::move(sampler_params), env_.Get(), vocab_size,
-                              logits_data_type_));
+                              data_type));
 
   // If the sampler can handle input, prepare the input tensors for it.
   if (sampler_->CanHandleInput() && !signatures_.input_tokens.empty()) {
@@ -1123,7 +1128,12 @@ absl::Status LlmLiteRtCompiledModelExecutorBase::SetSamplerInputHandling(
 absl::Status LlmLiteRtCompiledModelExecutorBase::SampleLogits(
     const TensorBuffer& logits, TensorBuffer& ids_tensor) {
   if (sampler_ == nullptr) {
-    RETURN_IF_ERROR(InitializeSampler());
+    LITERT_ASSIGN_OR_RETURN(auto tensor_type, logits.TensorType());
+    ActivationDataType data_type = ActivationDataType::FLOAT32;
+    if (tensor_type.ElementType() == ::litert::ElementType::Float16) {
+      data_type = ActivationDataType::FLOAT16;
+    }
+    RETURN_IF_ERROR(InitializeSampler(data_type));
   }
 
   if (sampler_->CanHandleInput() && !signatures_.input_tokens.empty()) {
