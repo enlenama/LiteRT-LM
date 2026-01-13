@@ -1,21 +1,20 @@
 #include "c/engine.h"
 
-#include <cstring>
 #include <algorithm>
+#include <cstring>
 #include <memory>
 #include <string>
 
-
 #include <gmock/gmock.h>
-#include "nlohmann/json.hpp"  // from @nlohmann_json
-#include "runtime/conversation/io_types.h"
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/status_matchers.h"  // from @com_google_absl
 #include "absl/synchronization/notification.h"  // from @com_google_absl
+#include "nlohmann/json.hpp"  // from @nlohmann_json
+#include "runtime/conversation/conversation.h"
+#include "runtime/conversation/io_types.h"
 #include "runtime/engine/engine_settings.h"
 #include "runtime/executor/executor_settings_base.h"
-#include "runtime/conversation/conversation.h"
 
 struct LiteRtLmEngineSettings {
   std::unique_ptr<litert::lm::EngineSettings> settings;
@@ -168,14 +167,18 @@ TEST(EngineCTest, CreateConversationConfig) {
   sampler_params.top_p = 0.5f;
   sampler_params.temperature = 0.1f;
   sampler_params.seed = 1234;
+  SessionConfigPtr session_config(
+      litert_lm_session_config_create(&sampler_params),
+      &litert_lm_session_config_delete);
+  ASSERT_NE(session_config, nullptr);
 
-  // 3. Create a Conversation Config with the Engine Handle, Sampler Params
+  // 3. Create a Conversation Config with the Engine Handle, Session Config
   // and System Message.
   const std::string system_message =
       R"({"type":"text","text":"You are a helpful assistant."})";
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(
-          engine.get(), &sampler_params, system_message.c_str()),
+      litert_lm_conversation_config_create(engine.get(), session_config.get(),
+                                           system_message.c_str()),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
 
@@ -218,9 +221,12 @@ TEST(EngineCTest, CreateConversationConfigWithNoSamplerParams) {
   // 2. Create a Conversation Config with the Engine Handle and System Message.
   const std::string system_message =
       R"({"type":"text","text":"You are a helpful assistant."})";
+  SessionConfigPtr session_config(litert_lm_session_config_create(nullptr),
+                                  &litert_lm_session_config_delete);
+  ASSERT_NE(session_config, nullptr);
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(
-          engine.get(), /*sampler_params=*/nullptr, system_message.c_str()),
+      litert_lm_conversation_config_create(engine.get(), session_config.get(),
+                                           system_message.c_str()),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
 
@@ -253,9 +259,11 @@ TEST(EngineCTest, CreateConversationConfigWithNoSamplerParamsNoSystemMessage) {
   ASSERT_NE(engine, nullptr);
 
   // 2. Create a Conversation Config with the Engine Handle and System Message.
+  SessionConfigPtr session_config(litert_lm_session_config_create(nullptr),
+                                  &litert_lm_session_config_delete);
+  ASSERT_NE(session_config, nullptr);
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(engine.get(),
-                                           /*sampler_params=*/nullptr,
+      litert_lm_conversation_config_create(engine.get(), session_config.get(),
                                            /*system_message_json=*/nullptr),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
@@ -290,11 +298,15 @@ TEST(EngineCTest, CreateConversationConfigWithNoSystemMessage) {
   sampler_params.top_p = 0.5f;
   sampler_params.temperature = 0.1f;
   sampler_params.seed = 1234;
+  SessionConfigPtr session_config(
+      litert_lm_session_config_create(&sampler_params),
+      &litert_lm_session_config_delete);
+  ASSERT_NE(session_config, nullptr);
 
-  // 3. Create a Conversation Config with the Engine Handle and Sampler Params.
+  // 3. Create a Conversation Config with the Engine Handle and Session Config.
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(
-          engine.get(), &sampler_params, /*system_message_json=*/nullptr),
+      litert_lm_conversation_config_create(engine.get(), session_config.get(),
+                                           /*system_message_json=*/nullptr),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
 
@@ -328,7 +340,8 @@ TEST(EngineCTest, GenerateContent) {
                    &litert_lm_engine_delete);
   ASSERT_NE(engine, nullptr);
 
-  SessionPtr session(litert_lm_engine_create_session(engine.get()),
+  SessionPtr session(litert_lm_engine_create_session(
+                         engine.get(), /* session_config */ nullptr),
                      &litert_lm_session_delete);
   ASSERT_NE(session, nullptr);
 
@@ -349,6 +362,81 @@ TEST(EngineCTest, GenerateContent) {
   EXPECT_GT(strlen(response_text), 0);
 }
 
+TEST(EngineCTest, CreateSessionWithMaxOutputTokens) {
+  const std::string task_path = GetTestdataPath(
+      "litert_lm/runtime/testdata/test_lm_new_metadata.task");
+
+  EngineSettingsPtr settings(
+      litert_lm_engine_settings_create(task_path.c_str(), "cpu",
+                                       /* vision_backend_str */ nullptr,
+                                       /* audio_backend_str */ nullptr),
+      &litert_lm_engine_settings_delete);
+  ASSERT_NE(settings, nullptr);
+  litert_lm_engine_settings_set_max_num_tokens(settings.get(), 16);
+
+  EnginePtr engine(litert_lm_engine_create(settings.get()),
+                   &litert_lm_engine_delete);
+  ASSERT_NE(engine, nullptr);
+
+  // Test with max_output_tokens=1. The response length should be short (<10).
+  {
+    SessionConfigPtr session_config(litert_lm_session_config_create(nullptr),
+                                    &litert_lm_session_config_delete);
+    ASSERT_NE(session_config, nullptr);
+    litert_lm_session_config_set_max_output_tokens(session_config.get(), 1);
+
+    SessionPtr session(
+        litert_lm_engine_create_session(engine.get(), session_config.get()),
+        &litert_lm_session_delete);
+    ASSERT_NE(session, nullptr);
+
+    const char* prompt = "Hello world!";
+    InputData input_data;
+    input_data.type = kInputText;
+    input_data.data = prompt;
+    input_data.size = strlen(prompt);
+    ResponsesPtr responses(
+        litert_lm_session_generate_content(session.get(), &input_data, 1),
+        &litert_lm_responses_delete);
+    ASSERT_NE(responses, nullptr);
+
+    EXPECT_EQ(litert_lm_responses_get_num_candidates(responses.get()), 1);
+    const char* response_text =
+        litert_lm_responses_get_response_text_at(responses.get(), 0);
+    ASSERT_NE(response_text, nullptr);
+    EXPECT_GT(strlen(response_text), 0);
+    EXPECT_LT(strlen(response_text), 10);
+  }
+
+  // Test without max_output_tokens. The response length should be long (>=10).
+  {
+    SessionConfigPtr session_config(litert_lm_session_config_create(nullptr),
+                                    &litert_lm_session_config_delete);
+    ASSERT_NE(session_config, nullptr);
+
+    SessionPtr session(
+        litert_lm_engine_create_session(engine.get(), session_config.get()),
+        &litert_lm_session_delete);
+    ASSERT_NE(session, nullptr);
+
+    const char* prompt = "Hello world!";
+    InputData input_data;
+    input_data.type = kInputText;
+    input_data.data = prompt;
+    input_data.size = strlen(prompt);
+    ResponsesPtr responses(
+        litert_lm_session_generate_content(session.get(), &input_data, 1),
+        &litert_lm_responses_delete);
+    ASSERT_NE(responses, nullptr);
+
+    EXPECT_EQ(litert_lm_responses_get_num_candidates(responses.get()), 1);
+    const char* response_text =
+        litert_lm_responses_get_response_text_at(responses.get(), 0);
+    ASSERT_NE(response_text, nullptr);
+    EXPECT_GT(strlen(response_text), 10);
+  }
+}
+
 TEST(EngineCTest, ConversationSendMessage) {
   const std::string task_path = GetTestdataPath(
       "litert_lm/runtime/testdata/test_lm_new_metadata.task");
@@ -365,10 +453,10 @@ TEST(EngineCTest, ConversationSendMessage) {
                    &litert_lm_engine_delete);
   ASSERT_NE(engine, nullptr);
 
-  ConversationPtr conversation(litert_lm_conversation_create(
-                                   engine.get(),
-                                   /*conversation_config=*/nullptr),
-                               &litert_lm_conversation_delete);
+  ConversationPtr conversation(
+      litert_lm_conversation_create(engine.get(),
+                                    /*conversation_config=*/nullptr),
+      &litert_lm_conversation_delete);
   ASSERT_NE(conversation, nullptr);
 
   const char* message_json =
@@ -407,14 +495,18 @@ TEST(EngineCTest, ConversationSendMessageWithConfig) {
   sampler_params.top_p = 0.5f;
   sampler_params.temperature = 0.1f;
   sampler_params.seed = 1234;
+  SessionConfigPtr session_config(
+      litert_lm_session_config_create(&sampler_params),
+      &litert_lm_session_config_delete);
+  ASSERT_NE(session_config, nullptr);
 
-  // 3. Create a Conversation Config with the Engine Handle, Sampler Params
+  // 3. Create a Conversation Config with the Engine Handle, Session Config
   // and System Message.
   const std::string system_message =
       R"({"type":"text","text":"You are a helpful assistant."})";
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(
-          engine.get(), &sampler_params, system_message.c_str()),
+      litert_lm_conversation_config_create(engine.get(), session_config.get(),
+                                           system_message.c_str()),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
 
@@ -473,7 +565,8 @@ TEST(EngineCTest, GenerateContentStream) {
                    &litert_lm_engine_delete);
   ASSERT_NE(engine, nullptr);
 
-  SessionPtr session(litert_lm_engine_create_session(engine.get()),
+  SessionPtr session(litert_lm_engine_create_session(
+                         engine.get(), /* session_config */ nullptr),
                      &litert_lm_session_delete);
   ASSERT_NE(session, nullptr);
 
@@ -516,10 +609,10 @@ TEST(EngineCTest, ConversationSendMessageStream) {
                    &litert_lm_engine_delete);
   ASSERT_NE(engine, nullptr);
 
-  ConversationPtr conversation(litert_lm_conversation_create(
-                                   engine.get(),
-                                   /*conversation_config=*/nullptr),
-                               &litert_lm_conversation_delete);
+  ConversationPtr conversation(
+      litert_lm_conversation_create(engine.get(),
+                                    /*conversation_config=*/nullptr),
+      &litert_lm_conversation_delete);
   ASSERT_NE(conversation, nullptr);
 
   const char* message_json =
@@ -549,10 +642,10 @@ TEST(EngineCTest, ConversationSendMessageStreamAndCancel) {
                    &litert_lm_engine_delete);
   ASSERT_NE(engine, nullptr);
 
-  ConversationPtr conversation(litert_lm_conversation_create(
-                                   engine.get(),
-                                   /*conversation_config=*/nullptr),
-                               &litert_lm_conversation_delete);
+  ConversationPtr conversation(
+      litert_lm_conversation_create(engine.get(),
+                                    /*conversation_config=*/nullptr),
+      &litert_lm_conversation_delete);
   ASSERT_NE(conversation, nullptr);
 
   const char* message_json =
@@ -592,7 +685,8 @@ TEST(EngineCTest, Benchmark) {
                    &litert_lm_engine_delete);
   ASSERT_NE(engine, nullptr);
 
-  SessionPtr session(litert_lm_engine_create_session(engine.get()),
+  SessionPtr session(litert_lm_engine_create_session(
+                         engine.get(), /* session_config */ nullptr),
                      &litert_lm_session_delete);
   ASSERT_NE(session, nullptr);
 
@@ -611,8 +705,9 @@ TEST(EngineCTest, Benchmark) {
       &litert_lm_benchmark_info_delete);
   ASSERT_NE(benchmark_info, nullptr);
 
-  EXPECT_GT(litert_lm_benchmark_info_get_time_to_first_token(
-    benchmark_info.get()), 0.0);
+  EXPECT_GT(
+      litert_lm_benchmark_info_get_time_to_first_token(benchmark_info.get()),
+      0.0);
   int num_prefill_turns =
       litert_lm_benchmark_info_get_num_prefill_turns(benchmark_info.get());
   EXPECT_GT(num_prefill_turns, 0);

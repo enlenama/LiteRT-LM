@@ -15,9 +15,9 @@
 #include "c/engine.h"
 
 #include <cstddef>
+#include <cstring>
 #include <memory>
 #include <optional>
-#include <cstring>
 #include <string>
 #include <utility>
 #include <variant>
@@ -182,22 +182,11 @@ void litert_lm_session_config_delete(LiteRtLmSessionConfig* config) {
   delete config;
 }
 
-LiteRtLmConversationConfig*
-litert_lm_conversation_config_create(
-    LiteRtLmEngine* engine, const LiteRtLmSamplerParams* sampler_params,
+LiteRtLmConversationConfig* litert_lm_conversation_config_create(
+    LiteRtLmEngine* engine, const LiteRtLmSessionConfig* session_config,
     const char* system_message_json) {
   if (!engine || !engine->engine) {
     return nullptr;
-  }
-
-  SessionConfig session_config = SessionConfig::CreateDefault();
-  if (sampler_params) {
-    SamplerParameters& params = session_config.GetMutableSamplerParams();
-    params.set_type(ToSamplerParametersType(sampler_params->type));
-    params.set_k(sampler_params->top_k);
-    params.set_p(sampler_params->top_p);
-    params.set_temperature(sampler_params->temperature);
-    params.set_seed(sampler_params->seed);
   }
 
   litert::lm::JsonPreface json_preface;
@@ -215,9 +204,20 @@ litert_lm_conversation_config_create(
     json_preface.messages = nlohmann::ordered_json::array({system_message});
   }
 
+  std::unique_ptr<SessionConfig> default_session_config;
+  const SessionConfig* config_to_use;
+
+  if (session_config && session_config->config) {
+    config_to_use = session_config->config.get();
+  } else {
+    default_session_config =
+        std::make_unique<SessionConfig>(SessionConfig::CreateDefault());
+    config_to_use = default_session_config.get();
+  }
+
   auto conversation_config =
       litert::lm::ConversationConfig::CreateFromSessionConfig(
-          *engine->engine, session_config, json_preface,
+          *engine->engine, *config_to_use, json_preface,
           /*overwrite_processor_config=*/std::nullopt,
           /*enable_constrained_decoding=*/false);
 
@@ -298,8 +298,8 @@ void litert_lm_engine_settings_set_max_num_tokens(
   }
 }
 
-void litert_lm_engine_settings_set_cache_dir(
-    LiteRtLmEngineSettings* settings, const char* cache_dir) {
+void litert_lm_engine_settings_set_cache_dir(LiteRtLmEngineSettings* settings,
+                                             const char* cache_dir) {
   if (settings && settings->settings) {
     settings->settings->GetMutableMainExecutorSettings().SetCacheDir(cache_dir);
   }
@@ -330,11 +330,17 @@ LiteRtLmEngine* litert_lm_engine_create(
 }
 void litert_lm_engine_delete(LiteRtLmEngine* engine) { delete engine; }
 
-LiteRtLmSession* litert_lm_engine_create_session(LiteRtLmEngine* engine) {
+LiteRtLmSession* litert_lm_engine_create_session(
+    LiteRtLmEngine* engine, LiteRtLmSessionConfig* config) {
   if (!engine || !engine->engine) {
     return nullptr;
   }
-  auto session = engine->engine->CreateSession(SessionConfig::CreateDefault());
+  absl::StatusOr<std::unique_ptr<Engine::Session>> session;
+  if (config && config->config) {
+    session = engine->engine->CreateSession(*config->config);
+  } else {
+    session = engine->engine->CreateSession(SessionConfig::CreateDefault());
+  }
   if (!session.ok()) {
     ABSL_LOG(ERROR) << "Failed to create session: " << session.status();
     return nullptr;
@@ -519,8 +525,8 @@ LiteRtLmConversation* litert_lm_conversation_create(
 
   absl::StatusOr<std::unique_ptr<Conversation>> conversation;
   if (conversation_config && conversation_config->config) {
-    conversation = Conversation::Create(*engine->engine,
-                                        *conversation_config->config);
+    conversation =
+        Conversation::Create(*engine->engine, *conversation_config->config);
   } else {
     auto default_conversation_config =
         ConversationConfig::CreateDefault(*engine->engine);
