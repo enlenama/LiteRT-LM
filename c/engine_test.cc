@@ -179,8 +179,9 @@ TEST(EngineCTest, CreateConversationConfig) {
   const std::string system_message =
       R"({"type":"text","text":"You are a helpful assistant."})";
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(engine.get(), session_config.get(),
-                                           system_message.c_str()),
+      litert_lm_conversation_config_create(
+          engine.get(), session_config.get(), system_message.c_str(),
+          /*tools_json=*/nullptr, /*enable_constrained_decoding=*/false),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
 
@@ -227,8 +228,9 @@ TEST(EngineCTest, CreateConversationConfigWithNoSamplerParams) {
                                   &litert_lm_session_config_delete);
   ASSERT_NE(session_config, nullptr);
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(engine.get(), session_config.get(),
-                                           system_message.c_str()),
+      litert_lm_conversation_config_create(
+          engine.get(), session_config.get(), system_message.c_str(),
+          /*tools_json=*/nullptr, /*enable_constrained_decoding=*/false),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
 
@@ -265,8 +267,12 @@ TEST(EngineCTest, CreateConversationConfigWithNoSamplerParamsNoSystemMessage) {
                                   &litert_lm_session_config_delete);
   ASSERT_NE(session_config, nullptr);
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(engine.get(), session_config.get(),
-                                           /*system_message_json=*/nullptr),
+      litert_lm_conversation_config_create(
+          engine.get(),
+          /*session_config=*/session_config.get(),
+          /*system_message_json=*/nullptr,
+          /*tools_json=*/nullptr,
+          /*enable_constrained_decoding=*/false),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
 
@@ -308,8 +314,9 @@ TEST(EngineCTest, CreateConversationConfigWithNoSystemMessage) {
 
   // 3. Create a Conversation Config with the Engine Handle and Session Config.
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(engine.get(), session_config.get(),
-                                           /*system_message_json=*/nullptr),
+      litert_lm_conversation_config_create(
+          engine.get(), session_config.get(), /*system_message_json=*/nullptr,
+          /*tools_json=*/nullptr, /*enable_constrained_decoding=*/false),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
 
@@ -509,8 +516,9 @@ TEST(EngineCTest, ConversationSendMessageWithConfig) {
   const std::string system_message =
       R"({"type":"text","text":"You are a helpful assistant."})";
   ConversationConfigPtr conversation_config(
-      litert_lm_conversation_config_create(engine.get(), session_config.get(),
-                                           system_message.c_str()),
+      litert_lm_conversation_config_create(
+          engine.get(), session_config.get(), system_message.c_str(),
+          /*tools_json=*/nullptr, /*enable_constrained_decoding=*/false),
       &litert_lm_conversation_config_delete);
   ASSERT_NE(conversation_config, nullptr);
 
