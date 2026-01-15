@@ -28,6 +28,7 @@
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
+#include "absl/synchronization/notification.h"  // from @com_google_absl
 #include "absl/time/time.h"  // from @com_google_absl
 #include "runtime/components/constrained_decoding/fake_constraint.h"
 #include "runtime/components/model_resources.h"
@@ -194,14 +195,17 @@ TEST_F(ExecutionManagerTest, AddPrefillTaskInvalidAudioInput) {
                        execution_manager_->RegisterNewSession(session_config));
 
   std::vector<TaskState> task_states;
+  absl::Notification done;
   absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback =
-      [&task_states](absl::StatusOr<Responses> responses) {
+      [&task_states, &done](absl::StatusOr<Responses> responses) {
         if (!responses.ok()) {
           ASSERT_THAT(responses, testing::status::StatusIs(
                                      absl::StatusCode::kFailedPrecondition));
           ASSERT_THAT(responses.status().message(),
                       testing::Eq("The audio is not a preprocessed tensor."));
           task_states.push_back(TaskState::kFailed);
+          // Done on failed condition.
+          done.Notify();
         } else {
           ASSERT_OK(responses);
           task_states.push_back(responses->GetTaskState());
@@ -223,7 +227,9 @@ TEST_F(ExecutionManagerTest, AddPrefillTaskInvalidAudioInput) {
       std::make_shared<std::atomic<bool>>(false), std::move(callback)));
 
   EXPECT_OK(execution_manager_->WaitUntilDone(task_id, absl::Seconds(3)));
-
+  // Execution manager will wait for the LiteRT-LM tasks to be done, but not
+  // include the callback execution.
+  done.WaitForNotificationWithTimeout(absl::Seconds(5));
   EXPECT_THAT(task_states,
               ElementsAre(TaskState::kCreated, TaskState::kQueued,
                           TaskState::kProcessing, TaskState::kFailed));
@@ -236,8 +242,9 @@ TEST_F(ExecutionManagerTest, AddPrefillTaskInvalidImageInput) {
                        execution_manager_->RegisterNewSession(session_config));
 
   std::vector<TaskState> task_states;
+  absl::Notification done;
   absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback =
-      [&task_states](absl::StatusOr<Responses> responses) {
+      [&task_states, &done](absl::StatusOr<Responses> responses) {
         if (!responses.ok()) {
           ASSERT_THAT(responses, testing::status::StatusIs(
                                      absl::StatusCode::kFailedPrecondition));
@@ -246,6 +253,8 @@ TEST_F(ExecutionManagerTest, AddPrefillTaskInvalidImageInput) {
               testing::Eq(
                   "The image is not preprocessed and does not have a tensor."));
           task_states.push_back(TaskState::kFailed);
+          // Done on failed condition.
+          done.Notify();
         } else {
           ASSERT_OK(responses);
           task_states.push_back(responses->GetTaskState());
@@ -267,6 +276,9 @@ TEST_F(ExecutionManagerTest, AddPrefillTaskInvalidImageInput) {
       std::make_shared<std::atomic<bool>>(false), std::move(callback)));
 
   EXPECT_OK(execution_manager_->WaitUntilDone(task_id, absl::Seconds(3)));
+  // Execution manager will wait for the LiteRT-LM tasks to be done, but not
+  // include the callback execution.
+  done.WaitForNotificationWithTimeout(absl::Seconds(5));
 
   EXPECT_THAT(task_states,
               ElementsAre(TaskState::kCreated, TaskState::kQueued,
@@ -283,12 +295,17 @@ TEST_F(ExecutionManagerTest, AddDecodeTaskWithInternalSampler) {
 
   std::vector<TaskState> task_states;
   std::vector<std::string> responses_texts;
+  absl::Notification done;
   absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback =
-      [&task_states, &responses_texts](absl::StatusOr<Responses> responses) {
+      [&task_states, &responses_texts,
+       &done](absl::StatusOr<Responses> responses) {
         ASSERT_OK(responses);
         task_states.push_back(responses->GetTaskState());
         if (!responses->GetTexts().empty()) {
           responses_texts.push_back(responses->GetTexts()[0]);
+        }
+        if (responses->GetTaskState() == TaskState::kDone) {
+          done.Notify();
         }
       };
 
@@ -318,6 +335,7 @@ TEST_F(ExecutionManagerTest, AddDecodeTaskWithInternalSampler) {
 
   EXPECT_OK(
       execution_manager_->WaitUntilDone(decode_task_id, absl::Seconds(3)));
+  done.WaitForNotificationWithTimeout(absl::Seconds(5));
 
   EXPECT_THAT(task_states,
               ElementsAre(TaskState::kCreated, TaskState::kQueued,
@@ -343,12 +361,17 @@ TEST_F(ExecutionManagerTest, AddDecodeTaskWithExternalSampler) {
 
   std::vector<TaskState> task_states;
   std::vector<std::string> responses_texts;
+  absl::Notification done;
   absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback =
-      [&task_states, &responses_texts](absl::StatusOr<Responses> responses) {
+      [&task_states, &responses_texts,
+       &done](absl::StatusOr<Responses> responses) {
         ASSERT_OK(responses);
         task_states.push_back(responses->GetTaskState());
         if (!responses->GetTexts().empty()) {
           responses_texts.push_back(responses->GetTexts()[0]);
+        }
+        if (responses->GetTaskState() == TaskState::kDone) {
+          done.Notify();
         }
       };
 
@@ -378,6 +401,7 @@ TEST_F(ExecutionManagerTest, AddDecodeTaskWithExternalSampler) {
 
   EXPECT_OK(
       execution_manager_->WaitUntilDone(decode_task_id, absl::Seconds(3)));
+  done.WaitForNotificationWithTimeout(absl::Seconds(5));
 
   EXPECT_THAT(task_states,
               ElementsAre(TaskState::kCreated, TaskState::kQueued,

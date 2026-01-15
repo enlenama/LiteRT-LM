@@ -301,85 +301,107 @@ ExecutionManager::StartTask(TaskId task_id) {
 absl::Status ExecutionManager::FinishTask(
     TaskId task_id, absl::StatusOr<Responses> responses,
     absl::AnyInvocable<void(absl::StatusOr<Responses>)> absl_nonnull callback) {
-  auto invoke_callback_and_return =
-      [&](absl::Status status) ABSL_EXCLUSIVE_LOCKS_REQUIRED(
-          session_and_task_lookup_mutex_) -> absl::Status {
-    callback(status);
-    RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
+  absl::AnyInvocable<void()> callback_runner;
+  absl::Status return_status = absl::OkStatus();
+  auto set_callback_and_fail = [&](absl::Status status) -> absl::Status {
+    callback_runner = [cb = std::move(callback), s = status]() mutable {
+      cb(s);
+    };
     return status;
   };
+
   {
     absl::MutexLock lock(session_and_task_lookup_mutex_);
-    if (!task_lookup_.contains(task_id)) {
-      return absl::InvalidArgumentError(
-          absl::StrCat("Task ", task_id, " not found in task list."));
-    }
-    if (task_lookup_.at(task_id).task_state != TaskState::kProcessing) {
-      auto error_status = absl::FailedPreconditionError(
-          absl::StrCat("Task ", task_id, " is not in Processing state."));
-      return invoke_callback_and_return(error_status);
-    }
-    if (!responses.ok() || responses->GetTaskState() == TaskState::kCancelled) {
-      auto following_waiting_tasks = FollowingWaitingTasks(task_id);
-      if (!following_waiting_tasks.ok()) {
-        return invoke_callback_and_return(following_waiting_tasks.status());
+    return_status = [&]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(
+                        session_and_task_lookup_mutex_) -> absl::Status {
+      if (!task_lookup_.contains(task_id)) {
+        return absl::InvalidArgumentError(
+            absl::StrCat("Task ", task_id, " not found in task list."));
       }
-      auto status = UpdateAllTasksToState(
-          following_waiting_tasks.value(),
-          responses.ok() ? TaskState::kDependentTaskCancelled
-                         : TaskState::kDependentTaskFailed);
-      if (!status.ok()) {
-        return invoke_callback_and_return(status);
-      }
-    } else if (responses->GetTaskState() == TaskState::kDone ||
-               responses->GetTaskState() == TaskState::kMaxNumTokensReached) {
-      for (TaskId following_task_id :
-           task_lookup_.at(task_id).following_tasks) {
-        if (!task_lookup_.contains(following_task_id)) {
-          auto error_status = absl::InvalidArgumentError(
-              absl::StrCat("Following task ", following_task_id,
-                           " not found in task list."));
-          return invoke_callback_and_return(error_status);
-        }
-        if (IsTaskEndState(task_lookup_.at(following_task_id).task_state)) {
-          continue;
-        }
-        if (task_lookup_.at(following_task_id).task_state !=
-            TaskState::kCreated) {
-          auto error_status = absl::InvalidArgumentError(
-              absl::StrCat("Following task ", following_task_id,
-                           " is not in Created state. Task state: ",
-                           task_lookup_.at(following_task_id).task_state));
-          return invoke_callback_and_return(error_status);
-        }
-        if (!task_lookup_.at(following_task_id)
-                 .dependent_tasks.contains(task_id)) {
-          auto error_status = absl::InvalidArgumentError(
-              absl::StrCat("Following task ", following_task_id,
-                           " does not depend on task ", task_id));
-          return invoke_callback_and_return(error_status);
-        }
-        task_lookup_.at(following_task_id).dependent_tasks.erase(task_id);
-        if (task_lookup_.at(following_task_id).dependent_tasks.empty()) {
-          RETURN_IF_ERROR(QueueTask(following_task_id));
-        }
-      }
-    } else if (!IsTaskEndState(responses->GetTaskState())) {
-      return invoke_callback_and_return(absl::InvalidArgumentError(absl::StrCat(
-          "Expected task state for responses to be end state, but got ",
-          responses->GetTaskState())));
-    }
 
-    if (responses.ok()) {
-      auto task_state = responses->GetTaskState();
-      callback(std::move(responses));
-      RETURN_IF_ERROR(UpdateTaskState(task_id, task_state));
-    } else {
-      callback(std::move(responses));
-      RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
-    }
+      if (task_lookup_.at(task_id).task_state != TaskState::kProcessing) {
+        RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
+        return set_callback_and_fail(absl::FailedPreconditionError(
+            absl::StrCat("Task ", task_id, " is not in Processing state.")));
+      }
+
+      if (!responses.ok() ||
+          responses->GetTaskState() == TaskState::kCancelled) {
+        auto following_waiting_tasks = FollowingWaitingTasks(task_id);
+        if (!following_waiting_tasks.ok()) {
+          RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
+          return set_callback_and_fail(following_waiting_tasks.status());
+        }
+        auto status = UpdateAllTasksToState(
+            following_waiting_tasks.value(),
+            responses.ok() ? TaskState::kDependentTaskCancelled
+                           : TaskState::kDependentTaskFailed);
+        if (!status.ok()) {
+          RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
+          return set_callback_and_fail(status);
+        }
+      } else if (responses->GetTaskState() == TaskState::kDone ||
+                 responses->GetTaskState() == TaskState::kMaxNumTokensReached) {
+        for (TaskId following_task_id :
+             task_lookup_.at(task_id).following_tasks) {
+          if (!task_lookup_.contains(following_task_id)) {
+            RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
+            return set_callback_and_fail(absl::InvalidArgumentError(
+                absl::StrCat("Following task ", following_task_id,
+                             " not found in task list.")));
+          }
+          if (IsTaskEndState(task_lookup_.at(following_task_id).task_state)) {
+            continue;
+          }
+          if (task_lookup_.at(following_task_id).task_state !=
+              TaskState::kCreated) {
+            RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
+            return set_callback_and_fail(absl::InvalidArgumentError(
+                absl::StrCat("Following task ", following_task_id,
+                             " is not in Created state. Task state: ",
+                             task_lookup_.at(following_task_id).task_state)));
+          }
+          if (!task_lookup_.at(following_task_id)
+                   .dependent_tasks.contains(task_id)) {
+            RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
+            return set_callback_and_fail(absl::InvalidArgumentError(
+                absl::StrCat("Following task ", following_task_id,
+                             " does not depend on task ", task_id)));
+          }
+          task_lookup_.at(following_task_id).dependent_tasks.erase(task_id);
+          if (task_lookup_.at(following_task_id).dependent_tasks.empty()) {
+            RETURN_IF_ERROR(QueueTask(following_task_id));
+          }
+        }
+      } else if (!IsTaskEndState(responses->GetTaskState())) {
+        RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
+        return set_callback_and_fail(absl::InvalidArgumentError(absl::StrCat(
+            "Expected task state for responses to be end state, but got ",
+            responses->GetTaskState())));
+      }
+
+      if (responses.ok()) {
+        auto task_state = responses->GetTaskState();
+        RETURN_IF_ERROR(UpdateTaskState(task_id, task_state));
+        callback_runner = [cb = std::move(callback),
+                           r = std::move(responses)]() mutable {
+          cb(std::move(r));
+        };
+      } else {
+        RETURN_IF_ERROR(UpdateTaskState(task_id, TaskState::kFailed));
+        callback_runner = [cb = std::move(callback),
+                           r = std::move(responses)]() mutable {
+          cb(std::move(r));
+        };
+      }
+      return absl::OkStatus();
+    }();
   }
-  return absl::OkStatus();
+
+  if (callback_runner) {
+    callback_runner();
+  }
+  return return_status;
 }
 
 void ExecutionManager::FinishTaskAndLogErrors(
