@@ -47,6 +47,7 @@ data class EngineConfig(
   val audioBackend: Backend? = null,
   val maxNumTokens: Int? = null,
   val cacheDir: String? = null,
+  val litertDispatchLibDir: String? = null,
 ) {
   init {
     require(maxNumTokens == null || maxNumTokens > 0) {

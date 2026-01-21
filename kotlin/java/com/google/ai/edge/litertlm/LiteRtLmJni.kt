@@ -38,6 +38,7 @@ internal object LiteRtLmJni {
    *   non-positive, use the engine's default.
    * @param enableBenchmark Whether to enable benchmark mode or not.
    * @param cacheDir The directory for cache files.
+   * @param litertDispatchLibDir The directory for the LiteRT dispatch library.
    * @return A pointer to the native engine instance.
    */
   external fun nativeCreateEngine(
@@ -48,6 +49,7 @@ internal object LiteRtLmJni {
     maxNumTokens: Int,
     cacheDir: String,
     enableBenchmark: Boolean,
+    litertDispatchLibDir: String,
   ): Long
 
   /**
