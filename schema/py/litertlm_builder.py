@@ -509,6 +509,8 @@ class LitertLmFileBuilder:
     def read_and_compress(path: str) -> bytes:
       with litertlm_core.open_file(path, "rb") as f:
         content = f.read()
+        if path.endswith(".zlib"):
+          return content
         uncompressed_size = len(content)
         compressed_content = zlib.compress(content)
         return uncompressed_size.to_bytes(8, "little") + compressed_content
