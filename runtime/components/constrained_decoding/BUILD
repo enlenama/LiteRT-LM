@@ -224,6 +224,39 @@ cc_library(
     }),
 )
 
+cc_library(
+    name = "llguidance_schema_utils",
+    srcs = ["llguidance_schema_utils.cc"],
+    hdrs = ["llguidance_schema_utils.h"],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/strings:string_view",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "llguidance_schema_utils_test",
+    srcs = ["llguidance_schema_utils_test.cc"],
+    deps = [
+        ":bitmap",
+        ":constraint",
+        ":llg_constraint_config",
+        ":llg_constraint_provider",
+        ":llguidance_schema_utils",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/types:source_location",
+        "@nlohmann_json//:json",
+        "//runtime/components:tokenizer",
+    ],
+)
+
 cc_test(
     name = "llg_constraint_provider_test",
     srcs = ["llg_constraint_provider_test.cc"],
