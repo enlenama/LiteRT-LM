@@ -337,7 +337,7 @@ template <typename T>
       int dst_offset =
           i * next_dims_size * target_dims_size + j * next_dims_size;
       int src_offset = i * next_dims_size * target_dims_size +
-                     (j + num_tokens_to_drop) * next_dims_size;
+                       (j + num_tokens_to_drop) * next_dims_size;
       std::memcpy(target_ptr + dst_offset, target_ptr + src_offset,
                   next_dims_size * sizeof(T));
     }
