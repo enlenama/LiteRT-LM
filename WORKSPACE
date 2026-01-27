@@ -34,88 +34,6 @@ http_archive(
     url = "https://github.com/bazelbuild/rules_platform/releases/download/0.1.0/rules_platform-0.1.0.tar.gz",
 )
 
-# Rust (for HuggingFace Tokenizers)
-http_archive(
-    name = "rules_rust",
-    patches = ["@//:PATCH.rules_rust"],
-    sha256 = "53c1bac7ec48f7ce48c4c1c6aa006f27515add2aeb05725937224e6e00ec7cea",
-    url = "https://github.com/bazelbuild/rules_rust/releases/download/0.61.0/rules_rust-0.61.0.tar.gz",
-)
-
-load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
-
-rules_rust_dependencies()
-
-rust_register_toolchains(
-    edition = "2021",
-    extra_target_triples = [
-        # Explicitly add toolchains for mobile. Desktop platforms are supported by default.
-        "aarch64-linux-android",
-        "aarch64-apple-ios",
-        "aarch64-apple-ios-sim",
-    ],
-)
-
-load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
-
-crate_universe_dependencies()
-
-load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository")
-
-crates_repository(
-    name = "crate_index",
-    annotations = {
-        "llguidance": [
-            crate.annotation(
-                additive_build_file = "@//:BUILD.llguidance",
-                gen_build_script = False,
-                patches = [
-                    "@//:PATCH.llguidance_regexvec",
-                    "@//:PATCH.llguidance_numeric",
-                    "@//:PATCH.llguidance_grammar",
-                    "@//:PATCH.llguidance_parser",
-                    "@//:PATCH.llguidance_perf",
-                ],
-            ),
-        ],
-        "toktrie": [
-            crate.annotation(
-                patches = ["@//:PATCH.toktrie"],
-            ),
-        ],
-    },
-    cargo_lockfile = "//:Cargo.lock",
-    lockfile = "//:cargo-bazel-lock.json",
-    manifests = [
-        "//:Cargo.toml",
-    ],
-)
-
-load("@crate_index//:defs.bzl", "crate_repositories")
-
-crate_repositories()
-
-# cxxbridge-cmd is a binary-only package so we follow the steps in
-# https://bazelbuild.github.io/rules_rust/crate_universe_workspace.html#binary-dependencies.
-http_archive(
-    name = "cxxbridge_cmd",
-    build_file = "//cxxbridge_cmd:BUILD.cxxbridge_cmd.bazel",
-    integrity = "sha256-pf/3kWu94FwtuZRp8J3PryA78lsJbMv052GgR5JBLhA=",
-    strip_prefix = "cxxbridge-cmd-1.0.149",
-    type = "tar.gz",
-    urls = ["https://static.crates.io/crates/cxxbridge-cmd/cxxbridge-cmd-1.0.149.crate"],
-)
-
-crates_repository(
-    name = "cxxbridge_cmd_deps",
-    cargo_lockfile = "//cxxbridge_cmd:Cargo.lock",
-    manifests = ["@cxxbridge_cmd//:Cargo.toml"],
-)
-
-load("@cxxbridge_cmd_deps//:defs.bzl", cxxbridge_cmd_deps = "crate_repositories")
-
-cxxbridge_cmd_deps()
-
 # TensorFlow
 http_archive(
     name = "org_tensorflow",
@@ -416,6 +334,88 @@ load("@android_ndk_env//:current_android_ndk_env.bzl", "ANDROID_NDK_HOME_IS_SET"
 # Use "@android_ndk_env//:all" as a dummy toolchain target as register_toolchains() does not take
 # an empty string.
 register_toolchains("@androidndk//:all" if ANDROID_NDK_HOME_IS_SET else "@android_ndk_env//:all")
+
+# Rust (for HuggingFace Tokenizers)
+http_archive(
+    name = "rules_rust",
+    patches = ["@//:PATCH.rules_rust"],
+    sha256 = "53c1bac7ec48f7ce48c4c1c6aa006f27515add2aeb05725937224e6e00ec7cea",
+    url = "https://github.com/bazelbuild/rules_rust/releases/download/0.61.0/rules_rust-0.61.0.tar.gz",
+)
+
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+
+rules_rust_dependencies()
+
+rust_register_toolchains(
+    edition = "2021",
+    extra_target_triples = [
+        # Explicitly add toolchains for mobile. Desktop platforms are supported by default.
+        "aarch64-linux-android",
+        "aarch64-apple-ios",
+        "aarch64-apple-ios-sim",
+    ],
+)
+
+load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
+
+crate_universe_dependencies()
+
+load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository")
+
+crates_repository(
+    name = "crate_index",
+    annotations = {
+        "llguidance": [
+            crate.annotation(
+                additive_build_file = "@//:BUILD.llguidance",
+                gen_build_script = False,
+                patches = [
+                    "@//:PATCH.llguidance_regexvec",
+                    "@//:PATCH.llguidance_numeric",
+                    "@//:PATCH.llguidance_grammar",
+                    "@//:PATCH.llguidance_parser",
+                    "@//:PATCH.llguidance_perf",
+                ],
+            ),
+        ],
+        "toktrie": [
+            crate.annotation(
+                patches = ["@//:PATCH.toktrie"],
+            ),
+        ],
+    },
+    cargo_lockfile = "//:Cargo.lock",
+    lockfile = "//:cargo-bazel-lock.json",
+    manifests = [
+        "//:Cargo.toml",
+    ],
+)
+
+load("@crate_index//:defs.bzl", "crate_repositories")
+
+crate_repositories()
+
+# cxxbridge-cmd is a binary-only package so we follow the steps in
+# https://bazelbuild.github.io/rules_rust/crate_universe_workspace.html#binary-dependencies.
+http_archive(
+    name = "cxxbridge_cmd",
+    build_file = "//cxxbridge_cmd:BUILD.cxxbridge_cmd.bazel",
+    integrity = "sha256-pf/3kWu94FwtuZRp8J3PryA78lsJbMv052GgR5JBLhA=",
+    strip_prefix = "cxxbridge-cmd-1.0.149",
+    type = "tar.gz",
+    urls = ["https://static.crates.io/crates/cxxbridge-cmd/cxxbridge-cmd-1.0.149.crate"],
+)
+
+crates_repository(
+    name = "cxxbridge_cmd_deps",
+    cargo_lockfile = "//cxxbridge_cmd:Cargo.lock",
+    manifests = ["@cxxbridge_cmd//:Cargo.toml"],
+)
+
+load("@cxxbridge_cmd_deps//:defs.bzl", cxxbridge_cmd_deps = "crate_repositories")
+
+cxxbridge_cmd_deps()
 
 # VENDOR SDKS ######################################################################################
 
