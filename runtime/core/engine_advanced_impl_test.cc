@@ -53,10 +53,7 @@ absl::StatusOr<std::unique_ptr<Engine>> CreateEngine(
   ASSIGN_OR_RETURN(std::vector<EngineFactory::EngineType> engine_types,
                    EngineFactory::Instance().ListEngineTypes());
   RET_CHECK_EQ(engine_types.size(), 1);
-  RET_CHECK(engine_types[0] ==
-            EngineFactory::EngineType::kAdvancedLegacyTfLite);
-  return EngineFactory::Create(EngineFactory::EngineType::kAdvancedLegacyTfLite,
-                               std::move(engine_settings));
+  return EngineFactory::CreateAny(std::move(engine_settings));
 }
 
 TEST(EngineTest, CreateEngine_WithoutCache) {
@@ -105,6 +102,7 @@ TEST(EngineTest, CreateEngine_WithCache) {
   auto cache_path = std::filesystem::path(::testing::TempDir()) /
                     absl::StrCat("cache-", std::rand());
   std::filesystem::remove_all(cache_path);
+  std::filesystem::create_directories(cache_path);
   absl::Cleanup remove_cache = [cache_path] {
     std::filesystem::remove_all(cache_path);
   };
@@ -172,6 +170,7 @@ TEST(EngineTest, CreateEngine_WithModelAndCacheFromFileDescriptor) {
   auto cache_path = std::filesystem::path(::testing::TempDir()) /
                     absl::StrCat("cache-", std::rand(), ".cache");
   std::filesystem::remove_all(cache_path);
+  std::filesystem::create_directories(cache_path.parent_path());
   {
     // Create an empty file - ScopedFile expects the file to exist.
     std::ofstream cache_file(cache_path.string());
