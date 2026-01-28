@@ -256,6 +256,8 @@ cc_binary(
         "@com_google_absl//absl/strings:string_view",
         "//runtime/util:litert_status_util",
     ] + select({
+        "//conditions:default": [],
+    }) + select({
         "@platforms//os:windows": [
         ],
         "//conditions:default": [
