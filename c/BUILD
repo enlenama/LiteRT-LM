@@ -51,8 +51,8 @@ cc_library(
         "@litert//litert/c/internal:litert_logging",
         "//runtime/conversation",
         "//runtime/conversation:io_types",
+        "//runtime/core:engine_impl",
         "//runtime/engine:engine_factory",
-        "//runtime/engine:engine_impl_selected",
         "//runtime/engine:engine_interface",
         "//runtime/engine:engine_settings",
         "//runtime/engine:io_types",
@@ -73,7 +73,7 @@ cc_test(
         "@platforms//os:ios": [],
         "@platforms//os:linux": [],
         "@platforms//os:osx": [],
-        "@platforms//os:windows": [],
+        # "@platforms//os:windows": [], TODO: (b/479264401) Media Pipe Issue: Enable once the issue is fixed.
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     deps = [
