@@ -14,6 +14,7 @@
 
 #include "runtime/framework/execution_queue.h"
 
+#include <memory>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -84,18 +85,21 @@ TEST(ExecutionQueueTest, RemoveNonExistentTask) {
 }
 
 TEST(ExecutionQueueTest, RemoveRunningTaskFails) {
-  ExecutionQueue queue;
+  // Explicitly manage queue's lifetime via unique_ptr to ensure referenced
+  // notifications would not go out of scope.
+  auto queue = std::make_unique<ExecutionQueue>();
   absl::Notification task_running, task_continue;
 
-  ASSERT_OK_AND_ASSIGN(int id, queue.Enqueue([&] {
+  ASSERT_OK_AND_ASSIGN(int id, queue->Enqueue([&] {
     task_running.Notify();
     task_continue.WaitForNotification();
   }));
   task_running.WaitForNotification();
 
-  EXPECT_THAT(queue.Remove(id), StatusIs(absl::StatusCode::kNotFound));
+  EXPECT_THAT(queue->Remove(id), StatusIs(absl::StatusCode::kNotFound));
 
   task_continue.Notify();
+  queue.reset();
 }
 
 }  // namespace
