@@ -212,11 +212,20 @@ CreateNpuLlmLiteRtCompiledModelExecutor(LlmExecutorSettings executor_settings,
 #else
   auto aux_model_buffer = resources.GetTFLiteModelBuffer(ModelType::kTfLiteAux);
   if (!aux_model_buffer.ok() || aux_model_buffer->empty()) {
+    ABSL_ASSIGN_OR_RETURN(auto npu_settings,
+                     executor_settings.MutableBackendConfig<NpuConfig>());
+    if (npu_settings.disable_npu_jit_compilation) {
+      ABSL_LOG(WARNING)
+          << "NPU backend requested, but TF_LITE_AUX is not packaged in the "
+             "model, and disable_npu_jit_compilation is set. Falling back to "
+             "CPU instead of invoking the NPU compiler plugin.";
+      executor_settings.SetBackend(Backend::CPU);
+      return CreateCpuOrGpuLlmLiteRtCompiledModelExecutor(executor_settings,
+                                                          lrt_env, resources);
+    }
     ABSL_LOG(WARNING)
         << "NPU backend requested, but TF_LITE_AUX is not packaged in the "
            "model. Using the generic LiteRT compiler-plugin path.";
-    ABSL_ASSIGN_OR_RETURN(auto npu_settings,
-                     executor_settings.MutableBackendConfig<NpuConfig>());
     npu_settings.use_generic_litert_compiler_plugin = true;
     executor_settings.SetBackendConfig(npu_settings);
     return CreateCpuOrGpuLlmLiteRtCompiledModelExecutor(executor_settings,

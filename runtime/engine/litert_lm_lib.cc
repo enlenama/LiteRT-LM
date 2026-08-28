@@ -606,6 +606,8 @@ absl::StatusOr<EngineSettings> CreateEngineSettings(
         settings.use_hw_cache_update_for_npu;
     npu_settings.use_hw_ple_for_npu = settings.use_hw_ple_for_npu;
     npu_settings.enable_npu_debug_logging = settings.enable_npu_debug_logging;
+    npu_settings.disable_npu_jit_compilation =
+        settings.disable_npu_jit_compilation;
     executor_settings.SetBackendConfig(npu_settings);
   }
   const std::optional<Backend> sampler_backend = GetSamplerBackend(settings);

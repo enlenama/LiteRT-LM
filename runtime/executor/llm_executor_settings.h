@@ -160,6 +160,11 @@ struct NpuConfig {
 
   // Whether enable debug logging for NPU.
   bool enable_npu_debug_logging = false;
+
+  // If true, never invoke the NPU compiler plugin to JIT-compile. Only use
+  // NPU for subgraphs that already have a precompiled artifact; everything
+  // else falls back to CPU.
+  bool disable_npu_jit_compilation = false;
 };
 std::ostream& operator<<(std::ostream& os, const NpuConfig& config);
 

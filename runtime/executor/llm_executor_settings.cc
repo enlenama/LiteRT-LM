@@ -71,6 +71,8 @@ std::ostream& operator<<(std::ostream& os, const NpuConfig& config) {
   os << "use_hw_cache_update_for_npu: " << config.use_hw_cache_update_for_npu
      << "\n";
   os << "enable_npu_debug_logging: " << config.enable_npu_debug_logging << "\n";
+  os << "disable_npu_jit_compilation: " << config.disable_npu_jit_compilation
+     << "\n";
   return os;
 }
 

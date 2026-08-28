@@ -620,6 +620,12 @@ litert::Expected<litert::Options>
 LlmLiteRtNpuCompiledModelExecutor::CreateLiteRtNpuOptions(
     const LlmExecutorSettings& settings) {
   LITERT_ASSIGN_OR_RETURN(auto options, ::litert::Options::Create());
+  auto npu_config_status = settings.GetBackendConfig<NpuConfig>();
+  if (npu_config_status.ok() &&
+      npu_config_status->disable_npu_jit_compilation) {
+    options.SetHardwareAccelerators(litert::HwAccelerators::kCpu);
+    return options;
+  }
   options.SetHardwareAccelerators(litert::HwAccelerators::kNpu |
                                   litert::HwAccelerators::kCpu);
   // TODO: saliltambe - Bug: 498622107

@@ -144,6 +144,7 @@ struct LiteRtLmSettings {
   bool use_hw_cache_update_for_npu = true;
   bool use_hw_ple_for_npu = true;
   bool enable_npu_debug_logging = false;
+  bool disable_npu_jit_compilation = false;
   bool disable_input_prompt_as_hint = false;
 };
 

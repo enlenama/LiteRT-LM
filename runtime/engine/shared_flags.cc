@@ -194,6 +194,10 @@ ABSL_FLAG(bool, use_hw_cache_update_for_npu, true,
 ABSL_FLAG(bool, use_hw_ple_for_npu, true, "If true, use HW PLE for NPU.");
 ABSL_FLAG(bool, enable_npu_debug_logging, false,
           "If true, enable debug logging for NPU.");
+ABSL_FLAG(bool, disable_npu_jit_compilation, false,
+          "If true, never invoke the NPU compiler plugin to JIT-compile; "
+          "fall back to CPU for any subgraph without a precompiled NPU "
+          "artifact.");
 ABSL_FLAG(
     bool, disable_input_prompt_as_hint, false,
     "If true, disable the input prompt as a hint when creating the engine. "
